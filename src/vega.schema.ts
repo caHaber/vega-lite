@@ -11,7 +11,7 @@ import {
   LayoutAlign,
   LinearScale,
   LogScale,
-  MarkConfig as VgMarkConfig,
+  MarkConfig,
   NumericValueRef,
   OrdinalScale,
   PointScale,
@@ -284,13 +284,7 @@ export type VgEncodeEntry = Partial<Record<VgEncodeChannel, VgValueRef | (VgValu
 
 export type VgPostEncodingTransform = VgGeoShapeTransform;
 
-export type VgGuideEncode = any; // TODO: replace this (See guideEncode in Vega Schema)
-
-export type StrokeCap = 'butt' | 'round' | 'square';
-export type StrokeJoin = 'miter' | 'round' | 'bevel';
-export type Dir = 'ltr' | 'rtl';
-
-const VG_MARK_CONFIG_INDEX: Flag<keyof VgMarkConfig> = {
+const VG_MARK_CONFIG_INDEX: Flag<keyof MarkConfig> = {
   blend: 1,
   opacity: 1,
   fill: 1,
@@ -306,6 +300,7 @@ const VG_MARK_CONFIG_INDEX: Flag<keyof VgMarkConfig> = {
   strokeMiterLimit: 1,
   startAngle: 1,
   endAngle: 1,
+  padAngle: 1,
   innerRadius: 1,
   outerRadius: 1,
   size: 1,

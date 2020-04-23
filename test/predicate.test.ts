@@ -1,6 +1,7 @@
 import {expression} from '../src/compile/predicate';
 import {
   fieldFilterExpression,
+  FieldValidPredicate,
   isFieldEqualPredicate,
   isFieldLTEPredicate,
   isFieldOneOfPredicate,
@@ -8,9 +9,7 @@ import {
   isFieldValidPredicate,
   Predicate
 } from '../src/predicate';
-import {TimeUnit} from '../src/timeunit';
 import {without} from '../src/util';
-import {FieldValidPredicate} from '../src/predicate';
 
 describe('filter', () => {
   const equalFilter = {field: 'color', equal: 'red'};
@@ -132,30 +131,30 @@ describe('filter', () => {
           month: 'January'
         }
       });
-      expect(expr).toBe('datum["date"]===time(datetime(0, 0, 1, 0, 0, 0, 0))');
+      expect(expr).toBe('datum["date"]===time(datetime(2012, 0, 1, 0, 0, 0, 0))');
     });
 
     it('should return a correct expression for an EqualFilter with time unit and datetime object', () => {
       const expr = expression(null, {
-        timeUnit: TimeUnit.MONTH,
+        timeUnit: 'month',
         field: 'date',
         equal: {
           month: 'January'
         }
       });
       expect(expr).toEqual(
-        'time(datetime(0, month(datum["date"]), 1, 0, 0, 0, 0))===time(datetime(0, 0, 1, 0, 0, 0, 0))'
+        'time(datetime(2012, month(datum["date"]), 1, 0, 0, 0, 0))===time(datetime(2012, 0, 1, 0, 0, 0, 0))'
       );
     });
 
     it('should return a correct expression for an EqualFilter with datetime object', () => {
       const expr = expression(null, {
-        timeUnit: TimeUnit.MONTH,
+        timeUnit: 'month',
         field: 'date',
         equal: 'January'
       });
       expect(expr).toEqual(
-        'time(datetime(0, month(datum["date"]), 1, 0, 0, 0, 0))===time(datetime(0, 0, 1, 0, 0, 0, 0))'
+        'time(datetime(2012, month(datum["date"]), 1, 0, 0, 0, 0))===time(datetime(2012, 0, 1, 0, 0, 0, 0))'
       );
     });
 
@@ -166,30 +165,30 @@ describe('filter', () => {
           month: 'February'
         }
       });
-      expect(expr).toBe('datum["date"]<time(datetime(0, 1, 1, 0, 0, 0, 0))');
+      expect(expr).toBe('datum["date"]<time(datetime(2012, 1, 1, 0, 0, 0, 0))');
     });
 
     it('should return a correct expression for an greaterThanFilter with time unit and datetime object', () => {
       const expr = expression(null, {
-        timeUnit: TimeUnit.MONTH,
+        timeUnit: 'month',
         field: 'date',
         gt: {
           month: 'January'
         }
       });
       expect(expr).toEqual(
-        'time(datetime(0, month(datum["date"]), 1, 0, 0, 0, 0))>time(datetime(0, 0, 1, 0, 0, 0, 0))'
+        'time(datetime(2012, month(datum["date"]), 1, 0, 0, 0, 0))>time(datetime(2012, 0, 1, 0, 0, 0, 0))'
       );
     });
 
     it('should return a correct expression for an greaterThanEqualsFilter with datetime object', () => {
       const expr = expression(null, {
-        timeUnit: TimeUnit.MONTH,
+        timeUnit: 'month',
         field: 'date',
         gte: 'January'
       });
       expect(expr).toEqual(
-        'time(datetime(0, month(datum["date"]), 1, 0, 0, 0, 0))>=time(datetime(0, 0, 1, 0, 0, 0, 0))'
+        'time(datetime(2012, month(datum["date"]), 1, 0, 0, 0, 0))>=time(datetime(2012, 0, 1, 0, 0, 0, 0))'
       );
     });
 

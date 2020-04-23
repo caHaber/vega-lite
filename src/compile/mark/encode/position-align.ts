@@ -1,9 +1,9 @@
 import {Align} from 'vega';
+import {getVgPositionChannel} from '../../../channel';
 import {Config} from '../../../config';
 import {MarkDef} from '../../../mark';
-import {getFirstDefined} from '../../../util';
 import {VgEncodeChannel} from '../../../vega.schema';
-import {getMarkConfig} from '../../common';
+import {getMarkPropOrConfig} from '../../common';
 
 const ALIGNED_X_CHANNEL: Record<Align, VgEncodeChannel> = {
   left: 'x',
@@ -17,12 +17,20 @@ const BASELINED_Y_CHANNEL = {
   bottom: 'y2'
 };
 
-export function alignedPositionChannel(channel: 'x' | 'y', markDef: MarkDef, config: Config) {
+export function vgAlignedPositionChannel(
+  channel: 'x' | 'y' | 'radius' | 'theta',
+  markDef: MarkDef,
+  config: Config,
+  defaultAlign: 'top' | 'middle' = 'middle'
+) {
+  if (channel === 'radius' || channel === 'theta') {
+    return getVgPositionChannel(channel);
+  }
   const alignChannel = channel === 'x' ? 'align' : 'baseline';
-  const align = getFirstDefined(markDef[alignChannel], getMarkConfig(alignChannel, markDef, config));
+  const align = getMarkPropOrConfig(alignChannel, markDef, config);
   if (channel === 'x') {
-    return ALIGNED_X_CHANNEL[align ?? 'center'];
+    return ALIGNED_X_CHANNEL[align || (defaultAlign === 'top' ? 'left' : 'center')];
   } else {
-    return BASELINED_Y_CHANNEL[align ?? 'middle'];
+    return BASELINED_Y_CHANNEL[align || defaultAlign];
   }
 }

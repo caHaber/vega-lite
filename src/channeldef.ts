@@ -3,7 +3,46 @@ import {isArray, isBoolean, isNumber, isString} from 'vega-util';
 import {Aggregate, isAggregateOp, isArgmaxDef, isArgminDef, isCountingAggregateOp} from './aggregate';
 import {Axis} from './axis';
 import {autoMaxBins, Bin, BinParams, binToString, isBinned, isBinning} from './bin';
-import {Channel, isScaleChannel, isSecondaryRangeChannel, POSITION_SCALE_CHANNELS, rangeType} from './channel';
+import {
+  ANGLE,
+  Channel,
+  COLOR,
+  COLUMN,
+  DETAIL,
+  FACET,
+  FILL,
+  FILLOPACITY,
+  HREF,
+  isScaleChannel,
+  isSecondaryRangeChannel,
+  isXorY,
+  KEY,
+  LATITUDE,
+  LATITUDE2,
+  LONGITUDE,
+  LONGITUDE2,
+  OPACITY,
+  ORDER,
+  RADIUS,
+  RADIUS2,
+  rangeType,
+  ROW,
+  SHAPE,
+  SIZE,
+  STROKE,
+  STROKEDASH,
+  STROKEOPACITY,
+  STROKEWIDTH,
+  TEXT,
+  THETA,
+  THETA2,
+  TOOLTIP,
+  URL,
+  X,
+  X2,
+  Y,
+  Y2
+} from './channel';
 import {getMarkConfig} from './compile/common';
 import {isCustomFormatType} from './compile/format';
 import {CompositeAggregate} from './compositemark';
@@ -20,7 +59,7 @@ import {Predicate} from './predicate';
 import {Scale} from './scale';
 import {isSortByChannel, Sort, SortOrder} from './sort';
 import {isFacetFieldDef} from './spec/facet';
-import {StackOffset} from './stack';
+import {StackOffset, StackProperties} from './stack';
 import {
   getTimeUnitParts,
   isLocalSingleTimeUnit,
@@ -95,35 +134,35 @@ export type SignalRefWithCondition<
   condition?: Conditional<F> | ValueOrSignalCondition<V>;
 };
 
-export type ValueOrSignalWithCondition<
+export type ValueOrSignalDefWithCondition<
   F extends FieldDef<any> | DatumDef<any>,
   V extends ValueOrGradientOrText = Value
 > = ValueDefWithCondition<F, V> | SignalRefWithCondition<F, V>;
 
-export type StringValueOrSignalWithCondition<
+export type StringValueOrSignalDefWithCondition<
   F extends Field,
   T extends Type = StandardType
-> = ValueOrSignalWithCondition<MarkPropFieldOrDatumDef<F, T>, string | null>;
+> = ValueOrSignalDefWithCondition<MarkPropFieldOrDatumDef<F, T>, string | null>;
 
-export type ColorGradientValueOrSignalWithCondition<
+export type ColorGradientValueOrSignalDefWithCondition<
   F extends Field,
   T extends Type = StandardType
-> = ValueOrSignalWithCondition<MarkPropFieldOrDatumDef<F, T>, Gradient | string | null>;
+> = ValueOrSignalDefWithCondition<MarkPropFieldOrDatumDef<F, T>, Gradient | string | null>;
 
-export type NumericValueOrSignalWithCondition<F extends Field> = ValueOrSignalWithCondition<
+export type NumericValueOrSignalDefWithCondition<F extends Field> = ValueOrSignalDefWithCondition<
   MarkPropFieldOrDatumDef<F, StandardType>,
   number
 >;
-export type NumericArrayValueDefWithCondition<F extends Field> = ValueDefWithCondition<
+export type NumericArrayValueOrSignalDefWithCondition<F extends Field> = ValueOrSignalDefWithCondition<
   MarkPropFieldOrDatumDef<F, StandardType>,
   number[]
 >;
 
 export type TypeForShape = 'nominal' | 'ordinal' | 'geojson';
 
-export type ShapeValueOrSignalWithCondition<F extends Field> = StringValueOrSignalWithCondition<F, TypeForShape>;
+export type ShapeValueOrSignalDefWithCondition<F extends Field> = StringValueOrSignalDefWithCondition<F, TypeForShape>;
 
-export type TextValueOrSignalWithCondition<F extends Field> = ValueOrSignalWithCondition<StringFieldDef<F>, Text>;
+export type TextValueOrSignalDefWithCondition<F extends Field> = ValueOrSignalDefWithCondition<StringFieldDef<F>, Text>;
 
 export type Conditional<CD extends FieldDef<any> | DatumDef | ValueDef<any> | SignalRef> =
   | ConditionalPredicate<CD>
@@ -237,7 +276,7 @@ export function isRepeatRef(field: Field | any): field is RepeatRef {
 /** @@hidden */
 export type HiddenCompositeAggregate = CompositeAggregate;
 
-export interface FieldDefBase<F, B extends Bin = Bin> {
+export interface FieldDefBase<F, B extends Bin = Bin> extends BandMixins {
   /**
    * __Required.__ A string defining the name of the field from which to pull a data value
    * or an object defining iterated values from the [`repeat`](https://vega.github.io/vega-lite/docs/repeat.html) operator.
@@ -354,7 +393,7 @@ export interface SortableFieldDef<
 }
 
 export function isSortableFieldDef<F extends Field>(fieldDef: FieldDef<F>): fieldDef is SortableFieldDef<F> {
-  return isTypedFieldDef(fieldDef) && !!fieldDef['sort'];
+  return isTypedFieldDef(fieldDef) && 'sort' in fieldDef;
 }
 
 export type ScaleFieldDef<
@@ -377,7 +416,8 @@ export interface ScaleMixins {
 }
 
 export interface DatumDef<F extends Field = string, V extends Value | DateTime = Value | DateTime>
-  extends Partial<TypeMixins<Type>> {
+  extends Partial<TypeMixins<Type>>,
+    BandMixins {
   /**
    * A constant value in data domain.
    */
@@ -405,14 +445,52 @@ export type LatLongFieldDef<F extends Field> = FieldDefBase<F, null> &
   TitleMixins &
   Partial<TypeMixins<'quantitative'>>; // Lat long shouldn't have bin, but we keep bin property for simplicity of the codebase.
 
-export type PositionFieldDef<F extends Field> = ScaleFieldDef<
+export type PositionFieldDefBase<F extends Field> = ScaleFieldDef<
   F,
   StandardType,
   boolean | BinParams | 'binned' | null // This is equivalent to Bin but we use the full form so the docs has detailed types
 > &
-  PositionMixins;
+  PositionBaseMixins;
 
-export type PositionDatumDef<F extends Field> = PositionMixins & ScaleDatumDef<F>;
+export type PositionDatumDefBase<F extends Field> = ScaleDatumDef<F> & PositionBaseMixins;
+
+export interface PositionBaseMixins {
+  /**
+   * Type of stacking offset if the field should be stacked.
+   * `stack` is only applicable for `x`, `y`, `theta`, and `radius` channels with continuous domains.
+   * For example, `stack` of `y` can be used to customize stacking for a vertical bar chart.
+   *
+   * `stack` can be one of the following values:
+   * - `"zero"` or `true`: stacking with baseline offset at zero value of the scale (for creating typical stacked [bar](https://vega.github.io/vega-lite/docs/stack.html#bar) and [area](https://vega.github.io/vega-lite/docs/stack.html#area) chart).
+   * - `"normalize"` - stacking with normalized domain (for creating [normalized stacked bar and area charts](https://vega.github.io/vega-lite/docs/stack.html#normalized). <br/>
+   * -`"center"` - stacking with center baseline (for [streamgraph](https://vega.github.io/vega-lite/docs/stack.html#streamgraph)).
+   * - `null` or `false` - No-stacking. This will produce layered [bar](https://vega.github.io/vega-lite/docs/stack.html#layered-bar-chart) and area chart.
+   *
+   * __Default value:__ `zero` for plots with all of the following conditions are true:
+   * (1) the mark is `bar`, `area`, or `arc`;
+   * (2) the stacked measure channel (x or y) has a linear scale;
+   * (3) At least one of non-position channels mapped to an unaggregated field that is different from x and y. Otherwise, `null` by default.
+   *
+   * __See also:__ [`stack`](https://vega.github.io/vega-lite/docs/stack.html) documentation.
+   */
+  stack?: StackOffset | null | boolean;
+}
+
+export interface BandMixins {
+  /**
+   * For rect-based marks (`rect`, `bar`, and `image`), mark size relative to bandwidth of [band scales](https://vega.github.io/vega-lite/docs/scale.html#band), bins or time units. If set to `1`, the mark size is set to the bandwidth, the bin interval, or the time unit interval. If set to `0.5`, the mark size is half of the bandwidth or the time unit interval.
+   *
+   * For other marks, relative position on a band of a stacked, binned, time unit or band scale. If set to `0`, the marks will be positioned at the beginning of the band. If set to `0.5`, the marks will be positioned in the middle of the band.
+   *
+   * @minimum 0
+   * @maximum 1
+   */
+  band?: number;
+}
+
+export type PositionFieldDef<F extends Field> = PositionFieldDefBase<F> & PositionMixins;
+
+export type PositionDatumDef<F extends Field> = PositionDatumDefBase<F> & PositionMixins;
 
 export interface PositionMixins {
   /**
@@ -426,26 +504,6 @@ export interface PositionMixins {
   axis?: Axis | null;
 
   /**
-   * Type of stacking offset if the field should be stacked.
-   * `stack` is only applicable for `x` and `y` channels with continuous domains.
-   * For example, `stack` of `y` can be used to customize stacking for a vertical bar chart.
-   *
-   * `stack` can be one of the following values:
-   * - `"zero"` or `true`: stacking with baseline offset at zero value of the scale (for creating typical stacked [bar](https://vega.github.io/vega-lite/docs/stack.html#bar) and [area](https://vega.github.io/vega-lite/docs/stack.html#area) chart).
-   * - `"normalize"` - stacking with normalized domain (for creating [normalized stacked bar and area charts](https://vega.github.io/vega-lite/docs/stack.html#normalized). <br/>
-   * -`"center"` - stacking with center baseline (for [streamgraph](https://vega.github.io/vega-lite/docs/stack.html#streamgraph)).
-   * - `null` or `false` - No-stacking. This will produce layered [bar](https://vega.github.io/vega-lite/docs/stack.html#layered-bar-chart) and area chart.
-   *
-   * __Default value:__ `zero` for plots with all of the following conditions are true:
-   * (1) the mark is `bar` or `area`;
-   * (2) the stacked measure channel (x or y) has a linear scale;
-   * (3) At least one of non-position channels mapped to an unaggregated field that is different from x and y. Otherwise, `null` by default.
-   *
-   * __See also:__ [`stack`](https://vega.github.io/vega-lite/docs/stack.html) documentation.
-   */
-  stack?: StackOffset | null | boolean;
-
-  /**
    * An object defining the properties of the Impute Operation to be applied.
    * The field value of the other positional channel is taken as `key` of the `Impute` Operation.
    * The field of the `color` channel if specified is used as `groupby` of the `Impute` Operation.
@@ -453,38 +511,35 @@ export interface PositionMixins {
    * __See also:__ [`impute`](https://vega.github.io/vega-lite/docs/impute.html) documentation.
    */
   impute?: ImputeParams | null;
-
-  /**
-   * For rect-based marks (`rect`, `bar`, and `image`), mark size relative to bandwidth of [band scales](https://vega.github.io/vega-lite/docs/scale.html#band) or time units. If set to `1`, the mark size is set to the bandwidth or the time unit interval. If set to `0.5`, the mark size is half of the bandwidth or the time unit interval.
-   *
-   * For other marks, relative position on a band of a stacked, binned, time unit or band scale. If set to `0`, the marks will be positioned at the beginning of the band. If set to `0.5`, the marks will be positioned in the middle of the band.
-   *
-   * @minimum 0
-   * @maximum 1
-   */
-  band?: number;
 }
+
+export type PolarFieldDef<F extends Field> = PositionFieldDefBase<F>;
+export type PolarDatumDef<F extends Field> = PositionDatumDefBase<F>;
 
 export function getBand({
   channel,
   fieldDef,
   fieldDef2,
-  mark,
+  markDef: mark,
+  stack,
   config,
   isMidPoint
 }: {
   isMidPoint?: boolean;
   channel: Channel;
-  fieldDef: FieldDef<string>;
+  fieldDef: FieldDef<string> | DatumDef;
   fieldDef2?: SecondaryChannelDef<string>;
-  mark: MarkDef;
+  stack: StackProperties;
+  markDef: MarkDef;
   config: Config;
 }) {
-  const {timeUnit, bin} = fieldDef;
-  if (contains(['x', 'y'], channel)) {
-    if (isPositionFieldOrDatumDef(fieldDef) && fieldDef.band !== undefined) {
-      return fieldDef.band;
-    } else if (timeUnit && !fieldDef2) {
+  if (isFieldOrDatumDef(fieldDef) && fieldDef.band !== undefined) {
+    return fieldDef.band;
+  }
+  if (isFieldDef(fieldDef)) {
+    const {timeUnit, bin} = fieldDef;
+
+    if (timeUnit && !fieldDef2) {
       if (isMidPoint) {
         return getMarkConfig('timeUnitBandPosition', mark, config);
       } else {
@@ -494,6 +549,9 @@ export function getBand({
       return isRectBasedMark(mark.type) && !isMidPoint ? 1 : 0.5;
     }
   }
+  if (stack?.fieldChannel === channel && isMidPoint) {
+    return 0.5;
+  }
   return undefined;
 }
 
@@ -501,11 +559,12 @@ export function hasBand(
   channel: Channel,
   fieldDef: FieldDef<string>,
   fieldDef2: SecondaryChannelDef<string>,
-  mark: MarkDef,
+  stack: StackProperties,
+  markDef: MarkDef,
   config: Config
 ) {
   if (isBinning(fieldDef.bin) || (fieldDef.timeUnit && isTypedFieldDef(fieldDef) && fieldDef.type === 'temporal')) {
-    return !!getBand({channel, fieldDef, fieldDef2, mark, config});
+    return !!getBand({channel, fieldDef, fieldDef2, stack, markDef, config});
   }
   return false;
 }
@@ -553,7 +612,7 @@ export type ChannelDef<F extends Field = string> = Encoding<F>[keyof Encoding<F>
 export function isConditionalDef<CD extends ChannelDef<any> | GuideEncodingConditionalValueDef>(
   channelDef: CD
 ): channelDef is CD & {condition: Conditional<any>} {
-  return !!channelDef && !!channelDef['condition'];
+  return !!channelDef && 'condition' in channelDef;
 }
 
 /**
@@ -583,6 +642,7 @@ export function hasConditionalValueDef<F extends Field>(
 export function isFieldDef<F extends Field>(
   channelDef: ChannelDef<F> | FieldDefBase<F> | DatumDef<F, any>
 ): channelDef is FieldDefBase<F> | TypedFieldDef<F> | SecondaryFieldDef<F> {
+  // TODO: we can't use field in channelDef here as it's somehow failing runtime test
   return !!channelDef && (!!channelDef['field'] || channelDef['aggregate'] === 'count');
 }
 
@@ -617,34 +677,31 @@ export function isFieldOrDatumDef<F extends Field>(
 }
 
 export function isTypedFieldDef<F extends Field>(channelDef: ChannelDef<F>): channelDef is TypedFieldDef<F> {
-  return !!channelDef && ((!!channelDef['field'] && !!channelDef['type']) || channelDef['aggregate'] === 'count');
+  return !!channelDef && (('field' in channelDef && 'type' in channelDef) || channelDef['aggregate'] === 'count');
 }
 
 export function isValueDef<F extends Field>(channelDef: ChannelDef<F>): channelDef is ValueDef<any> {
-  return channelDef && 'value' in channelDef && channelDef['value'] !== undefined;
+  return channelDef && 'value' in channelDef && 'value' in channelDef;
 }
 
 export function isScaleFieldDef<F extends Field>(channelDef: ChannelDef<F>): channelDef is ScaleFieldDef<F> {
-  return !!channelDef && (!!channelDef['scale'] || !!channelDef['sort']);
+  return !!channelDef && ('scale' in channelDef || 'sort' in channelDef);
 }
 
 export function isPositionFieldOrDatumDef<F extends Field>(
   channelDef: ChannelDef<F>
 ): channelDef is PositionFieldDef<F> | PositionDatumDef<F> {
-  return (
-    !!channelDef &&
-    (!!channelDef['axis'] || !!channelDef['stack'] || !!channelDef['impute'] || channelDef['band'] !== undefined)
-  );
+  return channelDef && ('axis' in channelDef || 'stack' in channelDef || 'impute' in channelDef);
 }
 
 export function isMarkPropFieldOrDatumDef<F extends Field>(
   channelDef: ChannelDef<F>
 ): channelDef is MarkPropFieldDef<F, any> | MarkPropDatumDef<F> {
-  return !!channelDef && !!channelDef['legend'];
+  return !!channelDef && 'legend' in channelDef;
 }
 
 export function isTextFieldDef<F extends Field>(channelDef: ChannelDef<F>): channelDef is StringFieldDef<F> {
-  return !!channelDef && !!channelDef['format'];
+  return !!channelDef && 'format' in channelDef;
 }
 
 export interface FieldRefOption {
@@ -668,7 +725,7 @@ export interface FieldRefOption {
 function isOpFieldDef(
   fieldDef: FieldDefBase<string> | WindowFieldDef | AggregatedFieldDef
 ): fieldDef is WindowFieldDef | AggregatedFieldDef {
-  return !!fieldDef['op'];
+  return 'op' in fieldDef;
 }
 
 /**
@@ -981,7 +1038,7 @@ export function initFieldDef(fd: FieldDef<string, any>, channel: Channel) {
     fieldDef.bin = normalizeBin(bin, channel);
   }
 
-  if (isBinned(bin) && !contains(POSITION_SCALE_CHANNELS, channel)) {
+  if (isBinned(bin) && !isXorY(channel)) {
     log.warn(`Channel ${channel} should not be used with "binned" bin.`);
   }
 
@@ -1078,9 +1135,9 @@ export function channelCompatibility(
   }
 
   switch (channel) {
-    case 'row':
-    case 'column':
-    case 'facet':
+    case ROW:
+    case COLUMN:
+    case FACET:
       if (isContinuous(fieldDef)) {
         return {
           compatible: false,
@@ -1089,24 +1146,26 @@ export function channelCompatibility(
       }
       return COMPATIBLE;
 
-    case 'x':
-    case 'y':
-    case 'color':
-    case 'fill':
-    case 'stroke':
-    case 'text':
-    case 'detail':
-    case 'key':
-    case 'tooltip':
-    case 'href':
-    case 'url':
-    case 'angle':
+    case X:
+    case Y:
+    case COLOR:
+    case FILL:
+    case STROKE:
+    case TEXT:
+    case DETAIL:
+    case KEY:
+    case TOOLTIP:
+    case HREF:
+    case URL:
+    case ANGLE:
+    case THETA:
+    case RADIUS:
       return COMPATIBLE;
 
-    case 'longitude':
-    case 'longitude2':
-    case 'latitude':
-    case 'latitude2':
+    case LONGITUDE:
+    case LONGITUDE2:
+    case LATITUDE:
+    case LATITUDE2:
       if (type !== QUANTITATIVE) {
         return {
           compatible: false,
@@ -1115,13 +1174,15 @@ export function channelCompatibility(
       }
       return COMPATIBLE;
 
-    case 'opacity':
-    case 'fillOpacity':
-    case 'strokeOpacity':
-    case 'strokeWidth':
-    case 'size':
-    case 'x2':
-    case 'y2':
+    case OPACITY:
+    case FILLOPACITY:
+    case STROKEOPACITY:
+    case STROKEWIDTH:
+    case SIZE:
+    case THETA2:
+    case RADIUS2:
+    case X2:
+    case Y2:
       if (type === 'nominal' && !fieldDef['sort']) {
         return {
           compatible: false,
@@ -1130,7 +1191,7 @@ export function channelCompatibility(
       }
       return COMPATIBLE;
 
-    case 'strokeDash':
+    case STROKEDASH:
       if (!contains(['ordinal', 'nominal'], fieldDef.type)) {
         return {
           compatible: false,
@@ -1139,7 +1200,7 @@ export function channelCompatibility(
       }
       return COMPATIBLE;
 
-    case 'shape':
+    case SHAPE:
       if (!contains(['ordinal', 'nominal', 'geojson'], fieldDef.type)) {
         return {
           compatible: false,
@@ -1148,7 +1209,7 @@ export function channelCompatibility(
       }
       return COMPATIBLE;
 
-    case 'order':
+    case ORDER:
       if (fieldDef.type === 'nominal' && !('sort' in fieldDef)) {
         return {
           compatible: false,
@@ -1169,10 +1230,13 @@ export function isFieldOrDatumDefForTimeFormat(fieldOrDatumDef: FieldDef<string>
   return formatType === 'time' || (!formatType && isTimeFieldDef(fieldOrDatumDef));
 }
 
-export function isFieldDefWithCustomTimeFormat(fieldOrDatumDef: TypedFieldDef<string> | DatumDef): boolean {
+export function isFieldOrDatumDefWithCustomTimeFormat(
+  fieldOrDatumDef: TypedFieldDef<string> | DatumDef,
+  config: Config
+): boolean {
   const guide = getGuide(fieldOrDatumDef);
   const formatType = (guide && guide.formatType) || (isTextFieldDef(fieldOrDatumDef) && fieldOrDatumDef.formatType);
-  return formatType && isCustomFormatType(formatType);
+  return isCustomFormatType(formatType, config);
 }
 
 /**
@@ -1217,10 +1281,13 @@ export function valueExpr(
     expr = dateTimeToExpr(v);
   } else if (isString(v) || isNumber(v)) {
     if (unit || type === 'temporal') {
+      expr = `datetime(${JSON.stringify(v)})`;
+
       if (isLocalSingleTimeUnit(unit)) {
-        expr = dateTimeToExpr({[unit]: v});
-      } else {
-        expr = `datetime(${JSON.stringify(v)})`;
+        // for single timeUnit, we will use dateTimeToExpr to convert number/string to match the timeUnit
+        if ((isNumber(v) && v < 10000) || (isString(v) && isNaN(Date.parse(v)))) {
+          expr = dateTimeToExpr({[unit]: v});
+        }
       }
     }
   }

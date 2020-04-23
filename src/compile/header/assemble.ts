@@ -16,7 +16,7 @@ import {
 } from '../../header';
 import {isSortField} from '../../sort';
 import {FacetFieldDef, isFacetMapping} from '../../spec/facet';
-import {contains, keys, replaceAll} from '../../util';
+import {contains, keys, normalizeAngle, replaceAll} from '../../util';
 import {RowCol, VgComparator, VgMarkGroup, VgTitle} from '../../vega.schema';
 import {defaultLabelAlign, defaultLabelBaseline} from '../axis/properties';
 import {sortArrayIndexField} from '../data/calculate';
@@ -40,13 +40,15 @@ export function assembleTitleGroup(model: Model, channel: FacetChannel) {
     ? model.component.layoutHeaders[channel].facetFieldDef
     : undefined;
 
-  const {titleAnchor, titleAngle, titleOrient} = getHeaderProperties(
+  const {titleAnchor, titleAngle: ta, titleOrient} = getHeaderProperties(
     ['titleAnchor', 'titleAngle', 'titleOrient'],
     facetFieldDef,
     config,
     channel
   );
   const headerChannel = getHeaderChannel(channel, titleOrient);
+
+  const titleAngle = normalizeAngle(ta);
 
   return {
     name: `${channel}-title`,
@@ -71,12 +73,12 @@ export function defaultHeaderGuideAlign(headerChannel: HeaderChannel, angle: num
       return {align: 'right'};
   }
 
-  const align = defaultLabelAlign(angle, headerChannel === 'row' ? 'left' : 'top');
+  const align = defaultLabelAlign(angle, headerChannel === 'row' ? 'left' : 'top', headerChannel === 'row' ? 'y' : 'x');
   return align ? {align} : {};
 }
 
 export function defaultHeaderGuideBaseline(angle: number, channel: FacetChannel) {
-  const baseline = defaultLabelBaseline(angle, channel === 'row' ? 'left' : 'top');
+  const baseline = defaultLabelBaseline(angle, channel === 'row' ? 'left' : 'top', channel === 'row' ? 'y' : 'x', true);
   return baseline ? {baseline} : {};
 }
 

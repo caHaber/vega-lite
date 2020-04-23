@@ -1,5 +1,6 @@
 import {Orientation} from 'vega';
 import {isNumber, isObject} from 'vega-util';
+import {getMarkPropOrConfig} from '../compile/common';
 import {Config} from '../config';
 import {Encoding, extractTransformsFromEncoding} from '../encoding';
 import * as log from '../log';
@@ -7,7 +8,6 @@ import {isMarkDef, MarkDef} from '../mark';
 import {NormalizerParams} from '../normalize';
 import {GenericUnitSpec, NormalizedLayerSpec, NormalizedUnitSpec} from '../spec';
 import {AggregatedFieldDef, CalculateTransform, JoinAggregateTransform, Transform} from '../transform';
-import {Flag, getFirstDefined, keys} from '../util';
 import {CompositeMarkNormalizer} from './base';
 import {
   compositeMarkContinuousAxis,
@@ -24,17 +24,9 @@ import {
 export const BOXPLOT: 'boxplot' = 'boxplot';
 export type BoxPlot = typeof BOXPLOT;
 
-export type BoxPlotPart = 'box' | 'median' | 'outliers' | 'rule' | 'ticks';
+export const BOXPLOT_PARTS = ['box', 'median', 'outliers', 'rule', 'ticks'] as const;
 
-const BOXPLOT_PART_INDEX: Flag<BoxPlotPart> = {
-  box: 1,
-  median: 1,
-  outliers: 1,
-  rule: 1,
-  ticks: 1
-};
-
-export const BOXPLOT_PARTS = keys(BOXPLOT_PART_INDEX);
+type BoxPlotPart = typeof BOXPLOT_PARTS[number];
 
 export type BoxPlotPartsMixins = PartsMixins<BoxPlotPart>;
 
@@ -99,7 +91,12 @@ export function normalizeBoxPlot(
   }
 
   const extent = markDef.extent ?? config.boxplot.extent;
-  const sizeValue = getFirstDefined(markDef.size, config.boxplot.size);
+  const sizeValue = getMarkPropOrConfig(
+    'size',
+    markDef as any, // TODO: https://github.com/vega/vega-lite/issues/6245
+    config
+  );
+
   const boxPlotType = getBoxPlotType(extent);
   const {
     transform,

@@ -4,7 +4,7 @@ import {isPathMark, MarkDef} from '../../../mark';
 import {hasContinuousDomain} from '../../../scale';
 import {Dict, keys} from '../../../util';
 import {VgEncodeEntry, VgValueRef, VG_MARK_CONFIGS} from '../../../vega.schema';
-import {getMarkPropOrConfig} from '../../common';
+import {getMarkPropOrConfig, signalOrValueRef} from '../../common';
 import {UnitModel} from '../../unit';
 import {color} from './color';
 import {nonPosition} from './nonposition';
@@ -21,7 +21,7 @@ export {rectPosition} from './position-rect';
 export {text} from './text';
 export {tooltip} from './tooltip';
 
-export type Ignore = Record<'color' | 'size' | 'orient' | 'align' | 'baseline', 'ignore' | 'include'>;
+export type Ignore = Record<'color' | 'size' | 'orient' | 'align' | 'baseline' | 'theta', 'ignore' | 'include'>;
 
 export function baseEncodeEntry(model: UnitModel, ignore: Ignore) {
   const {fill = undefined, stroke = undefined} = ignore.color === 'include' ? color(model) : {};
@@ -66,7 +66,7 @@ function wrapAllFieldsInvalid(model: UnitModel, channel: Channel, valueRef: VgVa
 function markDefProperties(mark: MarkDef, ignore: Ignore) {
   return VG_MARK_CONFIGS.reduce((m, prop) => {
     if (mark[prop] !== undefined && ignore[prop] !== 'ignore') {
-      m[prop] = {value: mark[prop]};
+      m[prop] = signalOrValueRef(mark[prop]);
     }
     return m;
   }, {});

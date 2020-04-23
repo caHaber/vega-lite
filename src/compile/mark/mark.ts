@@ -6,8 +6,9 @@ import {AREA, BAR, isPathMark, LINE, Mark, TRAIL} from '../../mark';
 import {isSortByEncoding, isSortField} from '../../sort';
 import {contains, getFirstDefined, isNullOrFalse, keys, omit, pick} from '../../util';
 import {VgCompare, VgEncodeEntry, VG_CORNERRADIUS_CHANNELS} from '../../vega.schema';
-import {getMarkConfig, getStyles, sortParams} from '../common';
+import {getMarkConfig, getMarkPropOrConfig, getStyles, signalOrValueRef, sortParams} from '../common';
 import {UnitModel} from '../unit';
+import {arc} from './arc';
 import {area} from './area';
 import {bar} from './bar';
 import {MarkCompiler} from './base';
@@ -21,6 +22,7 @@ import {text} from './text';
 import {tick} from './tick';
 
 const markCompiler: Record<Mark, MarkCompiler> = {
+  arc,
   area,
   bar,
   circle,
@@ -94,9 +96,7 @@ const STACK_GROUP_PREFIX = 'stack_group_';
  */
 function getStackGroups(model: UnitModel) {
   // Don't use nested groups when cornerRadius is not specified, or specified as 0
-  const hasCornerRadius = VG_CORNERRADIUS_CHANNELS.some(
-    prop => model.markDef[prop] || getMarkConfig(prop, model.markDef, model.config)
-  );
+  const hasCornerRadius = VG_CORNERRADIUS_CHANNELS.some(prop => getMarkPropOrConfig(prop, model.markDef, model.config));
 
   // Activate groups if stack is used and the model doesn't have size encoding
   if (model.stack && !model.fieldDef('size') && hasCornerRadius) {
@@ -166,7 +166,7 @@ function getStackGroups(model: UnitModel) {
         groupUpdate[key] = mark.encode.update[key];
         delete mark.encode.update[key];
       } else if (configValue) {
-        groupUpdate[key] = {value: configValue};
+        groupUpdate[key] = signalOrValueRef(configValue);
       }
       // Overwrite any cornerRadius on mark set by config --- they are already moved to the group
       if (configValue) {
@@ -200,7 +200,7 @@ function getStackGroups(model: UnitModel) {
       } else {
         const configValue = getMarkConfig(prop, model.markDef, model.config);
         if (configValue !== undefined) {
-          return {...encode, [prop]: {value: configValue}};
+          return {...encode, [prop]: signalOrValueRef(configValue)};
         } else {
           return encode;
         }
@@ -254,8 +254,7 @@ export function getSort(model: UnitModel): VgCompare {
   const order = encoding.order;
   if (
     (!isArray(order) && isValueDef(order) && isNullOrFalse(order.value)) ||
-    (!order && isNullOrFalse(markDef.order)) ||
-    isNullOrFalse(getMarkConfig('order', markDef, config))
+    (!order && isNullOrFalse(getMarkPropOrConfig('order', markDef, config)))
   ) {
     return undefined;
   } else if ((isArray(order) || isFieldDef(order)) && !stack) {
@@ -290,6 +289,8 @@ export function getSort(model: UnitModel): VgCompare {
           field: vgField(fieldDefToSort, {expr: 'datum'}),
           order: s.order
         };
+      } else if (s === null) {
+        return undefined;
       } else {
         return {
           field: vgField(dimensionChannelDef, {

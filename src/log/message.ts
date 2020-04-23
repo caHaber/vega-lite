@@ -4,7 +4,7 @@
 
 import {AggregateOp} from 'vega';
 import {Aggregate} from '../aggregate';
-import {Channel, FacetChannel, GeoPositionChannel, getSizeType, PositionScaleChannel} from '../channel';
+import {Channel, FacetChannel, GeoPositionChannel, getSizeChannel, PositionScaleChannel} from '../channel';
 import {HiddenCompositeAggregate, TypedFieldDef, Value} from '../channeldef';
 import {SplitParentProperty} from '../compile/split';
 import {CompositeMark} from '../compositemark';
@@ -34,12 +34,13 @@ export function containerSizeNonSingle(name: 'width' | 'height') {
 
 export function containerSizeNotCompatibleWithAutosize(name: 'width' | 'height') {
   const uName = name == 'width' ? 'Width' : 'Height';
-  return `${uName} "container" only works well with autosize "fit" or "fit-x".`;
+  const fitDirection = name == 'width' ? 'x' : 'y';
+  return `${uName} "container" only works well with autosize "fit" or "fit-${fitDirection}".`;
 }
 
 export function droppingFit(channel?: PositionScaleChannel) {
   return channel
-    ? `Dropping "fit-${channel}" because spec has discrete ${getSizeType(channel)}.`
+    ? `Dropping "fit-${channel}" because spec has discrete ${getSizeChannel(channel)}.`
     : `Dropping "fit" because spec has discrete size.`;
 }
 
@@ -117,6 +118,8 @@ export function projectionOverridden(opt: {parentProjection: Projection; project
     projection
   )}.`;
 }
+
+export const REPLACE_ANGLE_WITH_THETA = 'Arc marks uses theta channel rather than angle, replacing angle with theta.';
 
 export function primitiveChannelDef(
   channel: Channel,

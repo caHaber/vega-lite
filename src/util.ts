@@ -202,7 +202,9 @@ export function prefixGenerator(a: ReadonlySet<string>): ReadonlySet<string> {
     // Wrap every element other than the first in `[]`
     const wrappedWithAccessors = splitField.map((y, i) => (i === 0 ? y : `[${y}]`));
     const computedPrefixes = wrappedWithAccessors.map((_, i) => wrappedWithAccessors.slice(0, i + 1).join(''));
-    computedPrefixes.forEach(y => prefixes.add(y));
+    for (const y of computedPrefixes) {
+      prefixes.add(y);
+    }
   }
   return prefixes;
 }
@@ -275,7 +277,7 @@ export function deleteNestedProperty(obj: any, orderedProps: string[]) {
     return true;
   }
   const prop = orderedProps.shift()!; // eslint-disable-line @typescript-eslint/no-non-null-assertion
-  if (deleteNestedProperty(obj[prop], orderedProps)) {
+  if (prop in obj && deleteNestedProperty(obj[prop], orderedProps)) {
     delete obj[prop];
   }
   return keys(obj).length === 0;
@@ -395,6 +397,9 @@ export function isInternalField(name: string) {
  * Normalize angle to be within [0,360).
  */
 export function normalizeAngle(angle: number) {
+  if (angle === undefined) {
+    return undefined;
+  }
   return ((angle % 360) + 360) % 360;
 }
 

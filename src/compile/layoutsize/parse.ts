@@ -1,4 +1,4 @@
-import {getPositionScaleChannel, getSizeType, POSITION_SCALE_CHANNELS} from '../../channel';
+import {getPositionScaleChannel, getSizeChannel, POSITION_SCALE_CHANNELS} from '../../channel';
 import {getViewConfigContinuousSize, getViewConfigDiscreteSize} from '../../config';
 import {hasDiscreteDomain} from '../../scale';
 import {isStep} from '../../spec/base';
@@ -21,8 +21,14 @@ export const parseRepeatLayoutSize = parseConcatLayoutSize;
 export function parseConcatLayoutSize(model: ConcatModel) {
   parseChildrenLayoutSize(model);
 
-  parseNonUnitLayoutSizeForChannel(model, 'childWidth');
-  parseNonUnitLayoutSizeForChannel(model, 'childHeight');
+  // for columns === 1 (vconcat), we can completely merge width. Otherwise, we can treat merged width as childWidth.
+  const widthType = model.layout.columns === 1 ? 'width' : 'childWidth';
+
+  // for columns === undefined (hconcat), we can completely merge height. Otherwise, we can treat merged height as childHeight.
+  const heightType = model.layout.columns === undefined ? 'height' : 'childHeight';
+
+  parseNonUnitLayoutSizeForChannel(model, widthType);
+  parseNonUnitLayoutSizeForChannel(model, heightType);
 }
 
 export function parseChildrenLayoutSize(model: Model) {
@@ -90,7 +96,7 @@ function parseNonUnitLayoutSizeForChannel(model: Model, layoutSizeType: LayoutSi
 export function parseUnitLayoutSize(model: UnitModel) {
   const {size, component} = model;
   for (const channel of POSITION_SCALE_CHANNELS) {
-    const sizeType = getSizeType(channel);
+    const sizeType = getSizeChannel(channel);
 
     if (size[sizeType]) {
       const specifiedSize = size[sizeType];
@@ -122,7 +128,8 @@ function defaultUnitSize(model: UnitModel, sizeType: 'width' | 'height'): Layout
     } else {
       return getViewConfigContinuousSize(config.view, sizeType);
     }
-  } else if (model.hasProjection) {
+  } else if (model.hasProjection || model.mark === 'arc') {
+    // arc should use continuous size by default otherwise the pie is extremely small
     return getViewConfigContinuousSize(config.view, sizeType);
   } else {
     const size = getViewConfigDiscreteSize(config.view, sizeType);

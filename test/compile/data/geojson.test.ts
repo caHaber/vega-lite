@@ -1,4 +1,4 @@
-import {FieldRef, Vector2} from 'vega-typings';
+import {FieldRef, Vector2} from 'vega';
 import {GeoJSONNode} from '../../../src/compile/data/geojson';
 import {contains, every} from '../../../src/util';
 import {parseUnitModelWithScaleAndLayoutSize} from '../../util';
@@ -75,7 +75,7 @@ describe('compile/data/geojson', () => {
     const retval = GeoJSONNode.parseAll(root, model);
 
     expect(retval).toBe(root);
-    expect(root.children.length).toBe(0);
+    expect(root.children).toHaveLength(0);
   });
 
   describe('GeoJSONNode', () => {

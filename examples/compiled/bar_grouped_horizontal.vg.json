@@ -121,7 +121,7 @@
               "x": {"scale": "x", "field": "sum_people"},
               "x2": {"scale": "x", "value": 0},
               "y": {"scale": "y", "field": "gender"},
-              "height": {"scale": "y", "band": true}
+              "height": {"scale": "y", "band": 1}
             }
           }
         }
@@ -154,7 +154,7 @@
   ],
   "legends": [{"fill": "color", "symbolType": "square", "title": "gender"}],
   "config": {
-    "axis": {"domainWidth": 1},
-    "style": {"cell": {"stroke": "transparent"}}
+    "style": {"cell": {"stroke": "transparent"}},
+    "axis": {"domainWidth": 1}
   }
 }

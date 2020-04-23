@@ -1,9 +1,8 @@
 import {SignalRef} from 'vega';
 import {isNumber} from 'vega-util';
 import {getViewConfigDiscreteStep} from '../../config';
-import {getFirstDefined} from '../../util';
 import {isVgRangeStep} from '../../vega.schema';
-import {getMarkConfig} from '../common';
+import {getMarkPropOrConfig, signalOrValueRef} from '../common';
 import {UnitModel} from '../unit';
 import {MarkCompiler} from './base';
 import * as encode from './encode';
@@ -24,7 +23,8 @@ export const tick: MarkCompiler = {
         baseline: 'ignore',
         color: 'include',
         orient: 'ignore',
-        size: 'ignore'
+        size: 'ignore',
+        theta: 'ignore'
       }),
 
       ...encode.pointPosition('x', model, {defaultPos: 'mid', vgChannel: 'xc'}),
@@ -35,7 +35,7 @@ export const tick: MarkCompiler = {
         defaultValue: defaultSize(model),
         vgChannel: vgSizeChannel
       }),
-      [vgThicknessChannel]: {value: getFirstDefined(markDef.thickness, config.tick.thickness)}
+      [vgThicknessChannel]: signalOrValueRef(getMarkPropOrConfig('thickness', markDef, config))
     };
   }
 };
@@ -47,12 +47,8 @@ function defaultSize(model: UnitModel): number | SignalRef {
   const vgSizeChannel = orient === 'horizontal' ? 'width' : 'height';
   const scale = model.getScaleComponent(orient === 'horizontal' ? 'x' : 'y');
 
-  const markPropOrConfig = getFirstDefined(
-    markDef[vgSizeChannel],
-    markDef.size,
-    getMarkConfig('size', markDef, config, {vgChannel: vgSizeChannel}),
-    config.tick.bandSize
-  );
+  const markPropOrConfig =
+    getMarkPropOrConfig('size', markDef, config, {vgChannel: vgSizeChannel}) ?? config.tick.bandSize;
 
   if (markPropOrConfig !== undefined) {
     return markPropOrConfig;

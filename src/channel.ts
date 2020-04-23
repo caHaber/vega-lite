@@ -23,6 +23,12 @@ export const Y: 'y' = 'y';
 export const X2: 'x2' = 'x2';
 export const Y2: 'y2' = 'y2';
 
+// Arc-Position
+export const RADIUS: 'radius' = 'radius';
+export const RADIUS2: 'radius2' = 'radius2';
+export const THETA: 'theta' = 'theta';
+export const THETA2: 'theta2' = 'theta2';
+
 // Geo Position
 export const LATITUDE: 'latitude' = 'latitude';
 export const LONGITUDE: 'longitude' = 'longitude';
@@ -60,19 +66,36 @@ export const HREF: 'href' = 'href';
 
 export const URL: 'url' = 'url';
 
-export type PositionChannel = 'x' | 'y' | 'x2' | 'y2';
-
-const POSITION_CHANNEL_INDEX: Flag<PositionChannel> = {
+const POSITION_CHANNEL_INDEX = {
   x: 1,
   y: 1,
   x2: 1,
   y2: 1
-};
-export function isPositionChannel(c: Channel): c is PositionChannel {
-  return c in POSITION_CHANNEL_INDEX;
+} as const;
+
+export type PositionChannel = keyof typeof POSITION_CHANNEL_INDEX;
+
+const POLAR_POSITION_CHANNEL_INDEX = {
+  theta: 1,
+  theta2: 1,
+  radius: 1,
+  radius2: 1
+} as const;
+
+export type PolarPositionChannel = keyof typeof POLAR_POSITION_CHANNEL_INDEX;
+
+export function isPolarPositionChannel(c: Channel): c is PolarPositionChannel {
+  return c in POLAR_POSITION_CHANNEL_INDEX;
 }
 
-export type GeoPositionChannel = 'longitude' | 'latitude' | 'longitude2' | 'latitude2';
+const GEO_POSIITON_CHANNEL_INDEX = {
+  longitude: 1,
+  longitude2: 1,
+  latitude: 1,
+  latitude2: 1
+} as const;
+
+export type GeoPositionChannel = keyof typeof GEO_POSIITON_CHANNEL_INDEX;
 
 export function getPositionChannelFromLatLong(channel: GeoPositionChannel): PositionChannel {
   switch (channel) {
@@ -87,23 +110,17 @@ export function getPositionChannelFromLatLong(channel: GeoPositionChannel): Posi
   }
 }
 
-const GEOPOSITION_CHANNEL_INDEX: Flag<GeoPositionChannel> = {
-  longitude: 1,
-  longitude2: 1,
-  latitude: 1,
-  latitude2: 1
-};
-
 export function isGeoPositionChannel(c: Channel): c is GeoPositionChannel {
-  return c in GEOPOSITION_CHANNEL_INDEX;
+  return c in GEO_POSIITON_CHANNEL_INDEX;
 }
 
-export const GEOPOSITION_CHANNELS = keys(GEOPOSITION_CHANNEL_INDEX);
+export const GEOPOSITION_CHANNELS = keys(GEO_POSIITON_CHANNEL_INDEX);
 
 const UNIT_CHANNEL_INDEX: Flag<keyof Encoding<any>> = {
   ...POSITION_CHANNEL_INDEX,
+  ...POLAR_POSITION_CHANNEL_INDEX,
 
-  ...GEOPOSITION_CHANNEL_INDEX,
+  ...GEO_POSIITON_CHANNEL_INDEX,
 
   // color
   color: 1,
@@ -134,7 +151,7 @@ const UNIT_CHANNEL_INDEX: Flag<keyof Encoding<any>> = {
 export type ColorChannel = 'color' | 'fill' | 'stroke';
 
 export function isColorChannel(channel: Channel): channel is ColorChannel {
-  return channel === 'color' || channel === 'fill' || channel === 'stroke';
+  return channel === COLOR || channel === FILL || channel === STROKE;
 }
 
 export type FacetChannel = keyof EncodingFacetMapping<any>;
@@ -181,28 +198,76 @@ export function isChannel(str: string): str is Channel {
   return !!CHANNEL_INDEX[str];
 }
 
-export type SecondaryRangeChannel = 'x2' | 'y2' | 'latitude2' | 'longitude2';
+export type SecondaryRangeChannel = 'x2' | 'y2' | 'latitude2' | 'longitude2' | 'theta2' | 'radius2';
 
-export const SECONDARY_RANGE_CHANNEL: SecondaryRangeChannel[] = ['x2', 'y2', 'latitude2', 'longitude2'];
+export const SECONDARY_RANGE_CHANNEL: SecondaryRangeChannel[] = [X2, Y2, LATITUDE2, LONGITUDE2, THETA2, RADIUS2];
 
 export function isSecondaryRangeChannel(c: Channel): c is SecondaryRangeChannel {
   const main = getMainRangeChannel(c);
   return main !== c;
 }
 
+export type MainChannelOf<C extends Channel> = C extends 'x2'
+  ? 'x'
+  : C extends 'y2'
+  ? 'y'
+  : C extends 'latitude2'
+  ? 'latitude'
+  : C extends 'longitude2'
+  ? 'longitude'
+  : C extends 'theta2'
+  ? 'theta'
+  : C extends 'radius2'
+  ? 'radius'
+  : C;
+
 /**
  * Get the main channel for a range channel. E.g. `x` for `x2`.
  */
-export function getMainRangeChannel<C extends Channel>(channel: C): C | 'x' | 'y' | 'latitude' | 'longitude' {
+export function getMainRangeChannel<C extends Channel>(channel: C): MainChannelOf<C> {
   switch (channel) {
-    case 'x2':
-      return 'x';
-    case 'y2':
-      return 'y';
-    case 'latitude2':
-      return 'latitude';
-    case 'longitude2':
-      return 'longitude';
+    case X2:
+      return X as MainChannelOf<C>;
+    case Y2:
+      return Y as MainChannelOf<C>;
+    case LATITUDE2:
+      return LATITUDE as MainChannelOf<C>;
+    case LONGITUDE2:
+      return LONGITUDE as MainChannelOf<C>;
+    case THETA2:
+      return THETA as MainChannelOf<C>;
+    case RADIUS2:
+      return RADIUS as MainChannelOf<C>;
+  }
+  return channel as MainChannelOf<C>;
+}
+
+export type SecondaryChannelOf<C extends Channel> = C extends 'x'
+  ? 'x2'
+  : C extends 'y'
+  ? 'y2'
+  : C extends 'latitude'
+  ? 'latitude2'
+  : C extends 'longitude'
+  ? 'longitude2'
+  : C extends 'theta'
+  ? 'theta2'
+  : C extends 'radius'
+  ? 'radius2'
+  : undefined;
+
+export function getVgPositionChannel(channel: PolarPositionChannel | PositionChannel) {
+  if (isPolarPositionChannel(channel)) {
+    switch (channel) {
+      case THETA:
+        return 'startAngle';
+      case THETA2:
+        return 'endAngle';
+      case RADIUS:
+        return 'outerRadius';
+      case RADIUS2:
+        return 'innerRadius';
+    }
   }
   return channel;
 }
@@ -210,16 +275,57 @@ export function getMainRangeChannel<C extends Channel>(channel: C): C | 'x' | 'y
 /**
  * Get the main channel for a range channel. E.g. `x` for `x2`.
  */
-export function getSecondaryRangeChannel(channel: Channel): SecondaryRangeChannel {
+export function getSecondaryRangeChannel<C extends Channel>(channel: C): SecondaryChannelOf<C> {
   switch (channel) {
-    case 'x':
-      return 'x2';
-    case 'y':
-      return 'y2';
-    case 'latitude':
-      return 'latitude2';
-    case 'longitude':
-      return 'longitude2';
+    case X:
+      return X2 as SecondaryChannelOf<C>;
+    case Y:
+      return Y2 as SecondaryChannelOf<C>;
+    case LATITUDE:
+      return LATITUDE2 as SecondaryChannelOf<C>;
+    case LONGITUDE:
+      return LONGITUDE2 as SecondaryChannelOf<C>;
+    case THETA:
+      return THETA2 as SecondaryChannelOf<C>;
+    case RADIUS:
+      return RADIUS2 as SecondaryChannelOf<C>;
+  }
+  return undefined;
+}
+
+export function getSizeChannel(channel: Channel): 'width' | 'height' | undefined {
+  switch (channel) {
+    case X:
+    case X2:
+      return 'width';
+    case Y:
+    case Y2:
+      return 'height';
+  }
+  return undefined;
+}
+
+/**
+ * Get the main channel for a range channel. E.g. `x` for `x2`.
+ */
+export function getOffsetChannel(channel: Channel) {
+  switch (channel) {
+    case X:
+      return 'xOffset';
+    case Y:
+      return 'yOffset';
+    case X2:
+      return 'x2Offset';
+    case Y2:
+      return 'y2Offset';
+    case THETA:
+      return 'thetaOffset';
+    case RADIUS:
+      return 'radiusOffset';
+    case THETA2:
+      return 'theta2Offset';
+    case RADIUS2:
+      return 'radius2Offset';
   }
   return undefined;
 }
@@ -238,6 +344,10 @@ const {
   longitude: _longitude,
   latitude2: _latitude2,
   longitude2: _longitude2,
+  theta: _theta,
+  theta2: _theta2,
+  radius: _radius,
+  radius2: _radius2,
   // The rest of unit channels then have scale
   ...NONPOSITION_CHANNEL_INDEX
 } = UNIT_CHANNEL_INDEX;
@@ -245,17 +355,27 @@ const {
 export const NONPOSITION_CHANNELS = keys(NONPOSITION_CHANNEL_INDEX);
 export type NonPositionChannel = typeof NONPOSITION_CHANNELS[number];
 
-// POSITION_SCALE_CHANNELS = X and Y;
-const POSITION_SCALE_CHANNEL_INDEX = {x: 1, y: 1} as const;
+const POSITION_SCALE_CHANNEL_INDEX = {
+  x: 1,
+  y: 1
+} as const;
 export const POSITION_SCALE_CHANNELS = keys(POSITION_SCALE_CHANNEL_INDEX);
-export type PositionScaleChannel = typeof POSITION_SCALE_CHANNELS[number];
+export type PositionScaleChannel = keyof typeof POSITION_SCALE_CHANNEL_INDEX;
 
-export function getSizeType(channel: PositionScaleChannel): 'width' | 'height' {
-  return channel === 'x' ? 'width' : 'height';
+export function isXorY(channel: Channel): channel is PositionScaleChannel {
+  return channel in POSITION_SCALE_CHANNEL_INDEX;
 }
 
+const POLAR_POSITION_SCALE_CHANNEL_INDEX = {
+  theta: 1,
+  radius: 1
+} as const;
+
+export const POLAR_POSITION_SCALE_CHANNELS = keys(POLAR_POSITION_SCALE_CHANNEL_INDEX);
+export type PolarPositionScaleChannel = keyof typeof POLAR_POSITION_SCALE_CHANNEL_INDEX;
+
 export function getPositionScaleChannel(sizeType: 'width' | 'height'): PositionScaleChannel {
-  return sizeType === 'width' ? 'x' : 'y';
+  return sizeType === 'width' ? X : Y;
 }
 
 // NON_POSITION_SCALE_CHANNEL = SCALE_CHANNELS without X, Y
@@ -304,6 +424,7 @@ export function supportLegend(channel: NonPositionScaleChannel) {
 // Declare SCALE_CHANNEL_INDEX
 const SCALE_CHANNEL_INDEX = {
   ...POSITION_SCALE_CHANNEL_INDEX,
+  ...POLAR_POSITION_SCALE_CHANNEL_INDEX,
   ...NONPOSITION_SCALE_CHANNEL_INDEX
 };
 
@@ -328,6 +449,8 @@ export function supportMark(channel: Channel, mark: Mark) {
 }
 
 const ALL_MARKS: Record<Mark, 'always'> = {
+  // all marks
+  arc: 'always',
   area: 'always',
   bar: 'always',
   circle: 'always',
@@ -424,10 +547,16 @@ function getSupportedMark(channel: Channel): SupportedMark {
     case TEXT:
       return {text: 'always'};
     case ANGLE:
-      return {point: 'always', text: 'always'};
-
+      return {point: 'always', square: 'always', text: 'always'};
     case URL:
       return {image: 'always'};
+    case THETA:
+      return {text: 'always', arc: 'always'};
+    case RADIUS:
+      return {text: 'always', arc: 'always'};
+    case THETA2:
+    case RADIUS2:
+      return {arc: 'always'};
   }
 }
 
@@ -435,6 +564,8 @@ export function rangeType(channel: Channel): RangeType {
   switch (channel) {
     case X:
     case Y:
+    case THETA:
+    case RADIUS:
     case SIZE:
     case ANGLE:
     case STROKEWIDTH:
@@ -445,6 +576,8 @@ export function rangeType(channel: Channel): RangeType {
     // X2 and Y2 use X and Y scales, so they similarly have continuous range. [falls through]
     case X2:
     case Y2:
+    case THETA2:
+    case RADIUS2:
       return undefined;
 
     case FACET:

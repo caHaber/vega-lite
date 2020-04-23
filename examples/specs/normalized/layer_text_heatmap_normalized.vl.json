@@ -34,9 +34,5 @@
       }
     }
   ],
-  "config": {
-    "scale": {"bandPaddingInner": 0, "bandPaddingOuter": 0},
-    "text": {"baseline": "middle"},
-    "axis": {"grid": true, "tickBand": "extent"}
-  }
+  "config": {"axis": {"grid": true, "tickBand": "extent"}}
 }

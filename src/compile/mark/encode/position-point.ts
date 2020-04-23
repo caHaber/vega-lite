@@ -1,9 +1,17 @@
-import {getMainRangeChannel, PositionChannel, X, X2, Y2} from '../../../channel';
-import {isFieldDef, isPositionFieldOrDatumDef} from '../../../channeldef';
+import {
+  getMainRangeChannel,
+  getSecondaryRangeChannel,
+  getSizeChannel,
+  getVgPositionChannel,
+  isXorY,
+  PolarPositionChannel,
+  PositionChannel
+} from '../../../channel';
+import {getBand, isFieldDef, isFieldOrDatumDef, TypedFieldDef} from '../../../channeldef';
 import {ScaleType} from '../../../scale';
-import {contains, getFirstDefined} from '../../../util';
+import {contains} from '../../../util';
 import {VgValueRef} from '../../../vega.schema';
-import {getMarkConfig} from '../../common';
+import {getMarkPropOrConfig} from '../../common';
 import {ScaleComponent} from '../../scale/component';
 import {UnitModel} from '../../unit';
 import {getOffset} from './offset';
@@ -13,14 +21,22 @@ import * as ref from './valueref';
  * Return encode for point (non-band) position channels.
  */
 export function pointPosition(
-  channel: 'x' | 'y',
+  channel: 'x' | 'y' | 'theta' | 'radius',
   model: UnitModel,
-  {defaultPos, vgChannel}: {defaultPos: 'mid' | 'zeroOrMin' | 'zeroOrMax'; vgChannel?: 'x' | 'y' | 'xc' | 'yc'}
+  {
+    defaultPos,
+    vgChannel,
+    isMidPoint
+  }: {
+    defaultPos: 'mid' | 'zeroOrMin' | 'zeroOrMax' | null;
+    vgChannel?: 'x' | 'y' | 'xc' | 'yc';
+    isMidPoint?: boolean;
+  }
 ) {
   const {encoding, markDef, config, stack} = model;
 
   const channelDef = encoding[channel];
-  const channel2Def = encoding[channel === X ? X2 : Y2];
+  const channel2Def = encoding[getSecondaryRangeChannel(channel)];
   const scaleName = model.scaleName(channel);
   const scale = model.getScaleComponent(channel);
 
@@ -36,7 +52,7 @@ export function pointPosition(
   });
 
   const valueRef =
-    !channelDef && (encoding.latitude || encoding.longitude)
+    !channelDef && isXorY(channel) && (encoding.latitude || encoding.longitude)
       ? // use geopoint output if there are lat/long and there is no point position overriding lat/long.
         {field: model.getName(channel)}
       : positionRef({
@@ -45,6 +61,7 @@ export function pointPosition(
           channel2Def,
           markDef,
           config,
+          isMidPoint,
           scaleName,
           scale,
           stack,
@@ -52,9 +69,7 @@ export function pointPosition(
           defaultRef
         });
 
-  return {
-    [vgChannel ?? channel]: valueRef
-  };
+  return valueRef ? {[vgChannel || channel]: valueRef} : undefined;
 }
 
 // TODO: we need to find a way to refactor these so that scaleName is a part of scale
@@ -63,23 +78,34 @@ export function pointPosition(
 /**
  * @return Vega ValueRef for normal x- or y-position without projection
  */
-function positionRef(
+export function positionRef(
   params: ref.MidPointParams & {
-    channel: 'x' | 'y';
+    channel: 'x' | 'y' | 'radius' | 'theta';
+    isMidPoint?: boolean;
   }
 ): VgValueRef | VgValueRef[] {
-  const {channel, channelDef, scaleName, stack, offset} = params;
+  const {channel, channelDef, isMidPoint, scaleName, stack, offset, markDef, config} = params;
 
   // This isn't a part of midPoint because we use midPoint for non-position too
-  if (isFieldDef(channelDef) && stack && channel === stack.fieldChannel) {
-    if (isPositionFieldOrDatumDef(channelDef) && channelDef.band !== undefined) {
-      return ref.interpolatedSignalRef({
-        scaleName,
-        fieldOrDatumDef: channelDef,
-        startSuffix: 'start',
-        band: channelDef.band,
-        offset: 0
+  if (isFieldOrDatumDef(channelDef) && stack && channel === stack.fieldChannel) {
+    if (isFieldDef(channelDef)) {
+      const band = getBand({
+        channel,
+        fieldDef: channelDef,
+        isMidPoint,
+        markDef,
+        stack,
+        config
       });
+      if (band !== undefined) {
+        return ref.interpolatedSignalRef({
+          scaleName,
+          fieldOrDatumDef: channelDef as TypedFieldDef<string>, // positionRef always have type
+          startSuffix: 'start',
+          band,
+          offset
+        });
+      }
     }
     // x or y use stack_end so that stacked line's point mark use stack_end too.
     return ref.valueRefForFieldOrDatumDef(channelDef, scaleName, {suffix: 'end'}, {offset});
@@ -96,48 +122,66 @@ export function pointPositionDefaultRef({
   scale
 }: {
   model: UnitModel;
-  defaultPos: 'mid' | 'zeroOrMin' | 'zeroOrMax';
-  channel: PositionChannel;
+  defaultPos: 'mid' | 'zeroOrMin' | 'zeroOrMax' | null;
+  channel: PositionChannel | PolarPositionChannel;
   scaleName: string;
   scale: ScaleComponent;
 }): () => VgValueRef {
   const {markDef, config} = model;
   return () => {
     const mainChannel = getMainRangeChannel(channel);
+    const vgChannel = getVgPositionChannel(channel);
 
-    const definedValueOrConfig = getFirstDefined(markDef[channel], getMarkConfig(channel, markDef, config));
+    const definedValueOrConfig = getMarkPropOrConfig(channel, markDef, config, {vgChannel});
     if (definedValueOrConfig !== undefined) {
-      return ref.widthHeightValueRef(channel, definedValueOrConfig);
+      return ref.widthHeightValueOrSignalRef(channel, definedValueOrConfig);
     }
 
-    if (defaultPos === 'zeroOrMin' || defaultPos === 'zeroOrMax') {
-      if (scaleName) {
-        const scaleType = scale.get('type');
-        if (contains([ScaleType.LOG, ScaleType.TIME, ScaleType.UTC], scaleType)) {
-          // Log scales cannot have zero.
-          // Zero in time scale is arbitrary, and does not affect ratio.
-          // (Time is an interval level of measurement, not ratio).
-          // See https://en.wikipedia.org/wiki/Level_of_measurement for more info.
-        } else {
-          if (scale.domainDefinitelyIncludesZero()) {
-            return {
-              scale: scaleName,
-              value: 0
-            };
+    switch (defaultPos) {
+      case 'zeroOrMin':
+      case 'zeroOrMax':
+        if (scaleName) {
+          const scaleType = scale.get('type');
+          if (contains([ScaleType.LOG, ScaleType.TIME, ScaleType.UTC], scaleType)) {
+            // Log scales cannot have zero.
+            // Zero in time scale is arbitrary, and does not affect ratio.
+            // (Time is an interval level of measurement, not ratio).
+            // See https://en.wikipedia.org/wiki/Level_of_measurement for more info.
+          } else {
+            if (scale.domainDefinitelyIncludesZero()) {
+              return {
+                scale: scaleName,
+                value: 0
+              };
+            }
           }
         }
-      }
 
-      if (defaultPos === 'zeroOrMin') {
-        return mainChannel === 'x' ? {value: 0} : {field: {group: 'height'}};
-      } else {
-        // zeroOrMax
-        return mainChannel === 'x' ? {field: {group: 'width'}} : {value: 0};
+        if (defaultPos === 'zeroOrMin') {
+          return mainChannel === 'y' ? {field: {group: 'height'}} : {value: 0};
+        } else {
+          // zeroOrMax
+          switch (mainChannel) {
+            case 'radius':
+              // max of radius is min(width, height) / 2
+              return {
+                signal: `min(${model.width.signal},${model.height.signal})/2`
+              };
+            case 'theta':
+              return {signal: '2*PI'};
+            case 'x':
+              return {field: {group: 'width'}};
+            case 'y':
+              return {value: 0};
+          }
+        }
+        break;
+      case 'mid': {
+        const sizeRef = model[getSizeChannel(channel)];
+        return {...sizeRef, mult: 0.5};
       }
-    } else {
-      // mid
-      const sizeRef = model[mainChannel === 'x' ? 'width' : 'height'];
-      return {...sizeRef, mult: 0.5};
     }
+    // defautlPos === null
+    return undefined;
   };
 }

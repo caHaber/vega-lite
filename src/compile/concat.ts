@@ -3,8 +3,8 @@ import {Config} from '../config';
 import * as log from '../log';
 import {isHConcatSpec, isVConcatSpec, NormalizedConcatSpec, NormalizedSpec} from '../spec';
 import {VgLayout} from '../vega.schema';
-import {keys} from './../util';
-import {VgData} from './../vega.schema';
+import {keys} from '../util';
+import {VgData} from '../vega.schema';
 import {buildModel} from './buildmodel';
 import {parseData} from './data/parse';
 import {assembleLayoutSignals} from './layoutsize/assemble';
@@ -28,9 +28,9 @@ export class ConcatModel extends Model {
 
   public parseData() {
     this.component.data = parseData(this);
-    this.children.forEach(child => {
+    for (const child of this.children) {
       child.parseData();
-    });
+    }
   }
 
   public parseSelections() {

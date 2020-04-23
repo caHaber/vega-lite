@@ -1,9 +1,10 @@
+import {POSITION_SCALE_CHANNELS} from '../../../channel';
 import {ScaleChannel} from '../../../channel';
 import {Value} from '../../../channeldef';
 import {hasContinuousDomain} from '../../../scale';
 import {Dict, keys} from '../../../util';
 import {VgEncodeEntry} from '../../../vega.schema';
-import {getMarkPropOrConfig} from '../../common';
+import {getMarkPropOrConfig, signalOrValueRef} from '../../common';
 import {UnitModel} from '../../unit';
 import {fieldInvalidPredicate} from './valueref';
 
@@ -12,7 +13,7 @@ export function defined(model: UnitModel): VgEncodeEntry {
 
   const invalid = getMarkPropOrConfig('invalid', markDef, config);
   if (invalid) {
-    const signal = allFieldsInvalidPredicate(model, {channels: ['x', 'y']});
+    const signal = allFieldsInvalidPredicate(model, {channels: POSITION_SCALE_CHANNELS});
 
     if (signal) {
       return {defined: {signal}};
@@ -49,7 +50,7 @@ function allFieldsInvalidPredicate(
 
 export function valueIfDefined(prop: string, value: Value): VgEncodeEntry {
   if (value !== undefined) {
-    return {[prop]: {value: value}};
+    return {[prop]: signalOrValueRef(value)};
   }
   return undefined;
 }

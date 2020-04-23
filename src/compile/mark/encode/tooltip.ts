@@ -1,6 +1,6 @@
 import {array, isArray, isObject, isString, stringValue} from 'vega-util';
 import {isBinned} from '../../../bin';
-import {Channel, getMainRangeChannel} from '../../../channel';
+import {Channel, getMainRangeChannel, isXorY} from '../../../channel';
 import {
   getFieldDef,
   getFormatMixins,
@@ -15,8 +15,7 @@ import {
 import {Config} from '../../../config';
 import {Encoding, forEach} from '../../../encoding';
 import {StackProperties} from '../../../stack';
-import {getFirstDefined} from '../../../util';
-import {getMarkConfig} from '../../common';
+import {getMarkPropOrConfig} from '../../common';
 import {binFormatExpression, formatSignalRef} from '../../format';
 import {UnitModel} from '../../unit';
 import {wrapCondition} from './conditional';
@@ -28,9 +27,10 @@ export function tooltip(model: UnitModel, opt: {reactiveGeom?: boolean} = {}) {
   if (isArray(channelDef)) {
     return {tooltip: tooltipRefForEncoding({tooltip: channelDef}, model.stack, config, opt)};
   } else {
+    const datum = opt.reactiveGeom ? 'datum.datum' : 'datum';
     return wrapCondition(model, channelDef, 'tooltip', cDef => {
       // use valueRef based on channelDef first
-      const tooltipRefFromChannelDef = textRef(cDef, model.config, opt.reactiveGeom ? 'datum.datum' : 'datum');
+      const tooltipRefFromChannelDef = textRef(cDef, model.config, datum);
       if (tooltipRefFromChannelDef) {
         return tooltipRefFromChannelDef;
       }
@@ -40,8 +40,7 @@ export function tooltip(model: UnitModel, opt: {reactiveGeom?: boolean} = {}) {
         return undefined;
       }
 
-      // If tooltipDef does not exist, then use value from markDef or config
-      let markTooltip = getFirstDefined(markDef.tooltip, getMarkConfig('tooltip', markDef, config));
+      let markTooltip = getMarkPropOrConfig('tooltip', markDef, config);
 
       if (markTooltip === true) {
         markTooltip = {content: 'encoding'};
@@ -54,7 +53,7 @@ export function tooltip(model: UnitModel, opt: {reactiveGeom?: boolean} = {}) {
         if (markTooltip.content === 'encoding') {
           return tooltipRefForEncoding(encoding, model.stack, config, opt);
         } else {
-          return {signal: 'datum'};
+          return {signal: datum};
         }
       }
 
@@ -89,7 +88,7 @@ export function tooltipRefForEncoding(
 
     let value = textRef(fieldDef, config, expr).signal;
 
-    if (channel === 'x' || channel === 'y') {
+    if (isXorY(channel)) {
       const channel2 = channel === 'x' ? 'x2' : 'y2';
       const fieldDef2 = getFieldDef(encoding[channel2]);
 

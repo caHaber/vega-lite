@@ -77,7 +77,17 @@ By default, a scale in Vega-Lite draws domain values directly from a channel's e
 
 {% include table.html props="domain,domainMid" source="Scale" %}
 
-A common use case for the `domain` property is to limit, for example, the `x` range of values to include in a plot. However, setting the domain property alone is insufficient to achieve the desired effect. For example, consider the line plot specification below in which the `x` domain is restricted to the range `[300, 450]`.
+A common use case for the `domain` property is to limit, for example, the `x` range of values to include in a plot. However, setting the domain property alone is insufficient to achieve the desired effect.
+
+### Example: Customizing Domain for a Time Scale
+
+For a time scale, we can set scale domain to an array [datetime objects](types.html#datetime), as shown below.
+
+<div class="vl-example" data-name="bar_custom_time_domain"></div>
+
+### Example: Clipping or Removing Unwanted Data Points
+
+For example, consider the line plot specification below in which the `x` domain is restricted to the range `[300, 450]`.
 
 <div class="vl-example" data-name="line_outside_domain"></div>
 
@@ -263,7 +273,7 @@ By default, Vega-Lite automatically creates ordinal scales for `color` and `shap
 
 The [`range`](#range) of an ordinal scale can be an array of desired output values, which are directly mapped to elements in the [`domain`](#domain). Both `domain` and `range` array can be re-ordered to specify the order and mapping between the domain and the output range. For ordinal color scales, a custom [`scheme`](#scheme) can be set as well.
 
-<a name="point"></a><!-- point and band are in the same section -->
+<a id="point"></a><!-- point and band are in the same section -->
 
 {:#band}
 
@@ -291,7 +301,6 @@ For example, the following bar chart has uses a band scale for its x-position.
 
 <div class="vl-example" data-name="bar"></div>
 
-<a name="padding"/>
 {:#range-step}
 
 To customize the step size of band scales for x/y-fields, we can set the step property of the view's `width`/`height`.

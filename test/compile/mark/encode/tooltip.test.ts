@@ -3,7 +3,7 @@ import {tooltip, tooltipRefForEncoding} from '../../../../src/compile/mark/encod
 import {defaultConfig} from '../../../../src/config';
 import {parseUnitModelWithScaleAndLayoutSize} from '../../../util';
 
-describe('compile/mark/encoding/tooltip', () => {
+describe('compile/mark/encode/tooltip', () => {
   describe('tooltip', () => {
     it('generates tooltip object signal for all encoding fields', () => {
       const model = parseUnitModelWithScaleAndLayoutSize({
@@ -58,6 +58,18 @@ describe('compile/mark/encoding/tooltip', () => {
       });
       const props = tooltip(model);
       expect(props.tooltip).toEqual({signal: 'datum'});
+    });
+
+    it('generates tooltip object signal for all data if specified', () => {
+      const model = parseUnitModelWithScaleAndLayoutSize({
+        mark: {type: 'line', tooltip: {content: 'data'}},
+        encoding: {
+          x: {field: 'Horsepower', type: 'quantitative'},
+          y: {field: 'Acceleration', type: 'quantitative'}
+        }
+      });
+      const props = tooltip(model, {reactiveGeom: true});
+      expect(props.tooltip).toEqual({signal: 'datum.datum'});
     });
 
     it('priorizes tooltip field def', () => {

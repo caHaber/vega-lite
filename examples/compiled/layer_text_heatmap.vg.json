@@ -45,9 +45,9 @@
         "update": {
           "fill": {"scale": "color", "field": "num_cars"},
           "x": {"scale": "x", "field": "Cylinders"},
-          "width": {"scale": "x", "band": true},
+          "width": {"scale": "x", "band": 1},
           "y": {"scale": "y", "field": "Origin"},
-          "height": {"scale": "y", "band": true}
+          "height": {"scale": "y", "band": 1}
         }
       }
     },
@@ -65,7 +65,8 @@
           "x": {"scale": "x", "field": "Cylinders", "band": 0.5},
           "y": {"scale": "y", "field": "Origin", "band": 0.5},
           "text": {"signal": "format(datum[\"num_cars\"], \"\")"},
-          "align": {"value": "center"}
+          "align": {"value": "center"},
+          "baseline": {"value": "middle"}
         }
       }
     }
@@ -162,8 +163,5 @@
       "symbolType": "square"
     }
   ],
-  "config": {
-    "axis": {"grid": true, "tickBand": "extent"},
-    "style": {"text": {"baseline": "middle"}}
-  }
+  "config": {"axis": {"grid": true, "tickBand": "extent"}}
 }

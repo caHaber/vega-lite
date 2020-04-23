@@ -1,9 +1,27 @@
+import {range} from 'd3';
+import {AxisOrient, Orient, SignalRef} from 'vega';
+import {codegen, parse} from 'vega-expression';
+import {stringValue} from 'vega-util';
 import * as properties from '../../../src/compile/axis/properties';
-import {defaultLabelAlign, defaultLabelBaseline, labelAngle} from '../../../src/compile/axis/properties';
+import {defaultLabelAlign, defaultLabelBaseline, getLabelAngle} from '../../../src/compile/axis/properties';
 import {TimeUnit} from '../../../src/timeunit';
+import {normalizeAngle} from '../../../src/util';
+import {isSignalRef} from '../../../src/vega.schema';
 import {parseUnitModelWithScale} from '../../util';
 
 describe('compile/axis', () => {
+  function evalValueOrSignal(valueOrSignalRef: string | SignalRef, o: Orient) {
+    if (isSignalRef(valueOrSignalRef)) {
+      const ast = parse(valueOrSignalRef.signal);
+      const {code} = codegen({
+        globalvar: ((v: string) => (v === 'o' ? stringValue(o) : undefined)) as any
+      })(ast);
+      return eval(code);
+    } else {
+      return valueOrSignalRef;
+    }
+  }
+
   describe('defaultGrid()', () => {
     it('should return true by default for continuous scale that is not binned', () => {
       const grid = properties.defaultGrid('linear', {field: 'a', type: 'quantitative'});
@@ -23,12 +41,12 @@ describe('compile/axis', () => {
 
   describe('orient()', () => {
     it('should return bottom for x by default', () => {
-      const orient = properties.orient('x');
+      const orient = properties.defaultOrient('x');
       expect(orient).toBe('bottom');
     });
 
     it('should return left for y by default', () => {
-      const orient = properties.orient('y');
+      const orient = properties.defaultOrient('y');
       expect(orient).toBe('left');
     });
   });
@@ -203,128 +221,270 @@ describe('compile/axis', () => {
     });
 
     it('should return the correct labelAngle from the axis definition', () => {
-      expect(240).toEqual(labelAngle(axisModel, axisModel.axis('y'), 'y', axisModel.typedFieldDef('y'), []));
+      expect(240).toEqual(getLabelAngle(axisModel, axisModel.axis('y'), 'y', axisModel.typedFieldDef('y')));
     });
 
     it('should return the correct labelAngle from the axis config definition', () => {
       expect(140).toEqual(
-        labelAngle(configModel, configModel.axis('y'), 'y', configModel.typedFieldDef('y'), ['axis'])
+        getLabelAngle(configModel, configModel.axis('y'), 'y', configModel.typedFieldDef('y'), {
+          vlOnlyAxisConfig: {},
+          vgAxisConfig: {labelAngle: 500},
+          axisConfigStyle: {}
+        })
       );
     });
 
     it('should return the correct default labelAngle when not specified', () => {
-      expect(270).toEqual(labelAngle(defaultModel, defaultModel.axis('x'), 'x', defaultModel.typedFieldDef('x'), []));
+      expect(270).toEqual(getLabelAngle(defaultModel, defaultModel.axis('x'), 'x', defaultModel.typedFieldDef('x')));
     });
 
     it('should return the labelAngle declared in the axis when both the axis and axis config have labelAngle', () => {
-      expect(240).toEqual(labelAngle(bothModel, bothModel.axis('y'), 'y', bothModel.typedFieldDef('y'), []));
+      expect(240).toEqual(getLabelAngle(bothModel, bothModel.axis('y'), 'y', bothModel.typedFieldDef('y')));
     });
 
     it('should return undefined when there is no default and no specified labelAngle', () => {
       expect(undefined).toEqual(
-        labelAngle(neitherModel, neitherModel.axis('y'), 'y', neitherModel.typedFieldDef('y'), [])
+        getLabelAngle(neitherModel, neitherModel.axis('y'), 'y', neitherModel.typedFieldDef('y'))
       );
     });
   });
 
   describe('defaultLabelAlign', () => {
-    describe('horizontal orients', () => {
-      it('360 degree check for horizonatal orients return to see if they orient properly', () => {
-        expect(defaultLabelAlign(0, 'top')).toBe('center');
-        expect(defaultLabelAlign(15, 'top')).toBe('right');
-        expect(defaultLabelAlign(30, 'top')).toBe('right');
-        expect(defaultLabelAlign(45, 'top')).toBe('right');
-        expect(defaultLabelAlign(60, 'top')).toBe('right');
-        expect(defaultLabelAlign(75, 'top')).toBe('right');
-        expect(defaultLabelAlign(90, 'top')).toBe('right');
-        expect(defaultLabelAlign(105, 'top')).toBe('right');
-        expect(defaultLabelAlign(120, 'top')).toBe('right');
-        expect(defaultLabelAlign(135, 'top')).toBe('right');
-        expect(defaultLabelAlign(150, 'top')).toBe('right');
-        expect(defaultLabelAlign(165, 'top')).toBe('right');
-        expect(defaultLabelAlign(180, 'top')).toBe('center');
-        expect(defaultLabelAlign(195, 'bottom')).toBe('right');
-        expect(defaultLabelAlign(210, 'bottom')).toBe('right');
-        expect(defaultLabelAlign(225, 'bottom')).toBe('right');
-        expect(defaultLabelAlign(240, 'bottom')).toBe('right');
-        expect(defaultLabelAlign(255, 'bottom')).toBe('right');
-        expect(defaultLabelAlign(270, 'bottom')).toBe('right');
-        expect(defaultLabelAlign(285, 'bottom')).toBe('right');
-        expect(defaultLabelAlign(300, 'bottom')).toBe('right');
-        expect(defaultLabelAlign(315, 'bottom')).toBe('right');
-        expect(defaultLabelAlign(330, 'bottom')).toBe('right');
-        expect(defaultLabelAlign(345, 'bottom')).toBe('right');
-      });
-      it('360 degree check for vertical orients return to see if they orient properly', () => {
-        expect(defaultLabelAlign(0, 'left')).toBe('right');
-        expect(defaultLabelAlign(15, 'left')).toBe('right');
-        expect(defaultLabelAlign(30, 'left')).toBe('right');
-        expect(defaultLabelAlign(45, 'left')).toBe('right');
-        expect(defaultLabelAlign(60, 'left')).toBe('right');
-        expect(defaultLabelAlign(75, 'left')).toBe('right');
-        expect(defaultLabelAlign(90, 'left')).toBe('center');
-        expect(defaultLabelAlign(105, 'left')).toBe('left');
-        expect(defaultLabelAlign(120, 'left')).toBe('left');
-        expect(defaultLabelAlign(135, 'left')).toBe('left');
-        expect(defaultLabelAlign(150, 'left')).toBe('left');
-        expect(defaultLabelAlign(165, 'left')).toBe('left');
-        expect(defaultLabelAlign(180, 'left')).toBe('left');
-        expect(defaultLabelAlign(195, 'right')).toBe('right');
-        expect(defaultLabelAlign(210, 'right')).toBe('right');
-        expect(defaultLabelAlign(225, 'right')).toBe('right');
-        expect(defaultLabelAlign(240, 'right')).toBe('right');
-        expect(defaultLabelAlign(255, 'right')).toBe('right');
-        expect(defaultLabelAlign(270, 'right')).toBe('center');
-        expect(defaultLabelAlign(285, 'right')).toBe('left');
-        expect(defaultLabelAlign(300, 'right')).toBe('left');
-        expect(defaultLabelAlign(315, 'right')).toBe('left');
-        expect(defaultLabelAlign(330, 'right')).toBe('left');
-        expect(defaultLabelAlign(345, 'right')).toBe('left');
-      });
-      it('should return undefined if angle is undefined', () => {
-        expect(defaultLabelAlign(undefined, 'left')).toEqual(undefined);
-      });
+    it('correctly aligns the x-labels for all degrees', () => {
+      expect(defaultLabelAlign(0, 'top', 'x')).toBe(null);
+      expect(defaultLabelAlign(15, 'top', 'x')).toBe('right');
+      expect(defaultLabelAlign(30, 'top', 'x')).toBe('right');
+      expect(defaultLabelAlign(45, 'top', 'x')).toBe('right');
+      expect(defaultLabelAlign(60, 'top', 'x')).toBe('right');
+      expect(defaultLabelAlign(75, 'top', 'x')).toBe('right');
+      expect(defaultLabelAlign(90, 'top', 'x')).toBe('right');
+      expect(defaultLabelAlign(105, 'top', 'x')).toBe('right');
+      expect(defaultLabelAlign(120, 'top', 'x')).toBe('right');
+      expect(defaultLabelAlign(135, 'top', 'x')).toBe('right');
+      expect(defaultLabelAlign(150, 'top', 'x')).toBe('right');
+      expect(defaultLabelAlign(165, 'top', 'x')).toBe('right');
+      expect(defaultLabelAlign(180, 'top', 'x')).toBe(null);
+      expect(defaultLabelAlign(195, 'bottom', 'x')).toBe('right');
+      expect(defaultLabelAlign(210, 'bottom', 'x')).toBe('right');
+      expect(defaultLabelAlign(225, 'bottom', 'x')).toBe('right');
+      expect(defaultLabelAlign(240, 'bottom', 'x')).toBe('right');
+      expect(defaultLabelAlign(255, 'bottom', 'x')).toBe('right');
+      expect(defaultLabelAlign(270, 'bottom', 'x')).toBe('right');
+      expect(defaultLabelAlign(285, 'bottom', 'x')).toBe('right');
+      expect(defaultLabelAlign(300, 'bottom', 'x')).toBe('right');
+      expect(defaultLabelAlign(315, 'bottom', 'x')).toBe('right');
+      expect(defaultLabelAlign(330, 'bottom', 'x')).toBe('right');
+      expect(defaultLabelAlign(345, 'bottom', 'x')).toBe('right');
+    });
+
+    it('correctly aligns the y-labels for all degrees', () => {
+      expect(defaultLabelAlign(0, 'left', 'y')).toBe('right');
+      expect(defaultLabelAlign(15, 'left', 'y')).toBe('right');
+      expect(defaultLabelAlign(30, 'left', 'y')).toBe('right');
+      expect(defaultLabelAlign(45, 'left', 'y')).toBe('right');
+      expect(defaultLabelAlign(60, 'left', 'y')).toBe('right');
+      expect(defaultLabelAlign(75, 'left', 'y')).toBe('right');
+      expect(defaultLabelAlign(90, 'left', 'y')).toBe('center');
+      expect(defaultLabelAlign(105, 'left', 'y')).toBe('left');
+      expect(defaultLabelAlign(120, 'left', 'y')).toBe('left');
+      expect(defaultLabelAlign(135, 'left', 'y')).toBe('left');
+      expect(defaultLabelAlign(150, 'left', 'y')).toBe('left');
+      expect(defaultLabelAlign(165, 'left', 'y')).toBe('left');
+      expect(defaultLabelAlign(180, 'left', 'y')).toBe('left');
+      expect(defaultLabelAlign(195, 'right', 'y')).toBe('right');
+      expect(defaultLabelAlign(210, 'right', 'y')).toBe('right');
+      expect(defaultLabelAlign(225, 'right', 'y')).toBe('right');
+      expect(defaultLabelAlign(240, 'right', 'y')).toBe('right');
+      expect(defaultLabelAlign(255, 'right', 'y')).toBe('right');
+      expect(defaultLabelAlign(270, 'right', 'y')).toBe('center');
+      expect(defaultLabelAlign(285, 'right', 'y')).toBe('left');
+      expect(defaultLabelAlign(300, 'right', 'y')).toBe('left');
+      expect(defaultLabelAlign(315, 'right', 'y')).toBe('left');
+      expect(defaultLabelAlign(330, 'right', 'y')).toBe('left');
+      expect(defaultLabelAlign(345, 'right', 'y')).toBe('left');
+    });
+
+    it('should return undefined if angle is undefined', () => {
+      expect(defaultLabelAlign(undefined, 'left', 'y')).toEqual(undefined);
+    });
+
+    it('correctly align y-axis labels for labelAngle and orient signals', done => {
+      const ast = parse(defaultLabelAlign({signal: 'a'}, {signal: 'o'}, 'y')['signal']);
+      let a: number, o: AxisOrient;
+      // test all angles
+      for (a of range(-360, 375, 15)) {
+        for (o of ['left', 'right'] as AxisOrient[]) {
+          const {code} = codegen({
+            globalvar: ((v: string) => (v === 'a' ? a : v === 'o' ? stringValue(o) : undefined)) as any
+          })(ast);
+
+          const result = eval(code);
+          const expected = defaultLabelAlign(normalizeAngle(a), o, 'y');
+          // expect(result).toEqual(expected);
+          if (result !== expected) {
+            done(new Error(`${o}, ${a}  ${result} !== ${expected} \n ${code}`));
+          }
+        }
+      }
+      done();
+    });
+
+    it('correctly align x-axis labels for labelAngle and orient signals', done => {
+      const ast = parse(defaultLabelAlign({signal: 'a'}, {signal: 'o'}, 'x')['signal']);
+      let a: number, o: AxisOrient;
+      // test all angles
+      for (a of range(-360, 375, 15)) {
+        for (o of ['top', 'bottom'] as AxisOrient[]) {
+          const {code} = codegen({
+            globalvar: ((v: string) => (v === 'a' ? a : v === 'o' ? stringValue(o) : undefined)) as any
+          })(ast);
+
+          const result = eval(code);
+          const expected = defaultLabelAlign(normalizeAngle(a), o, 'x');
+          expect(result).toEqual(expected);
+        }
+      }
+      done();
+    });
+
+    it('correctly align y-axis labels for orient signal', done => {
+      let a: number, o: AxisOrient;
+      // test all angles
+      for (a of range(-360, 375, 15)) {
+        a = normalizeAngle(a);
+        const align = defaultLabelAlign(a, {signal: 'o'}, 'y');
+        for (o of ['left', 'right'] as AxisOrient[]) {
+          const result = evalValueOrSignal(align, o);
+          const expected = defaultLabelAlign(a, o, 'y');
+          expect(result).toEqual(expected);
+        }
+      }
+      done();
+    });
+
+    it('correctly align x-axis labels for orient signal', done => {
+      let a: number, o: AxisOrient;
+      // test all angles
+      for (a of range(-360, 375, 15)) {
+        a = normalizeAngle(a);
+        const align = defaultLabelAlign(a, {signal: 'o'}, 'x');
+        for (o of ['top', 'bottom'] as AxisOrient[]) {
+          const result = evalValueOrSignal(align, o);
+          const expected = defaultLabelAlign(a, o, 'x');
+          expect(result).toEqual(expected);
+        }
+      }
+      done();
     });
   });
 
   describe('defaultLabelBaseline', () => {
     it('is middle for perpendiculars horizontal orients', () => {
-      expect(defaultLabelBaseline(90, 'top')).toBe('middle');
-      expect(defaultLabelBaseline(270, 'bottom')).toBe('middle');
+      expect(defaultLabelBaseline(90, 'top', 'x')).toBe('middle');
+      expect(defaultLabelBaseline(270, 'bottom', 'x')).toBe('middle');
     });
 
     it('is top for bottom orients for 1st and 4th quadrants', () => {
-      expect(defaultLabelBaseline(45, 'bottom')).toBe('top');
-      expect(defaultLabelBaseline(180, 'top')).toBe('top');
+      expect(defaultLabelBaseline(45, 'bottom', 'x')).toBe('top');
+      expect(defaultLabelBaseline(180, 'top', 'x')).toBe('top');
     });
 
     it('is bottom for bottom orients for 2nd and 3rd quadrants', () => {
-      expect(defaultLabelBaseline(100, 'bottom')).toBe('middle');
-      expect(defaultLabelBaseline(260, 'bottom')).toBe('middle');
+      expect(defaultLabelBaseline(100, 'bottom', 'x')).toBe('middle');
+      expect(defaultLabelBaseline(260, 'bottom', 'x')).toBe('middle');
     });
 
     it('is middle for 0 and 180 horizontal orients', () => {
-      expect(defaultLabelBaseline(0, 'left')).toBe('middle');
-      expect(defaultLabelBaseline(180, 'right')).toBe('middle');
+      expect(defaultLabelBaseline(0, 'left', 'y')).toBe(null);
+      expect(defaultLabelBaseline(180, 'right', 'y')).toBe(null);
     });
 
     it('is top for bottom orients for 1st and 2nd quadrants', () => {
-      expect(defaultLabelBaseline(80, 'left')).toBe('top');
-      expect(defaultLabelBaseline(100, 'left')).toBe('top');
+      expect(defaultLabelBaseline(80, 'left', 'y')).toBe('top');
+      expect(defaultLabelBaseline(100, 'left', 'y')).toBe('top');
     });
 
     it('is bottom for bottom orients for 3rd and 4th quadrants', () => {
-      expect(defaultLabelBaseline(280, 'left')).toBe('bottom');
-      expect(defaultLabelBaseline(260, 'left')).toBe('bottom');
+      expect(defaultLabelBaseline(280, 'left', 'y')).toBe('bottom');
+      expect(defaultLabelBaseline(260, 'left', 'y')).toBe('bottom');
     });
 
     it('is bottom for bottom orients for 3rd and 4th quadrants', () => {
-      expect(defaultLabelBaseline(280, 'left')).toBe('bottom');
-      expect(defaultLabelBaseline(260, 'left')).toBe('bottom');
+      expect(defaultLabelBaseline(280, 'left', 'y')).toBe('bottom');
+      expect(defaultLabelBaseline(260, 'left', 'y')).toBe('bottom');
     });
 
     it('should return undefined if angle is undefined', () => {
-      expect(defaultLabelBaseline(undefined, 'left')).toEqual(undefined);
+      expect(defaultLabelBaseline(undefined, 'left', 'y')).toEqual(undefined);
+    });
+
+    it('correctly align y-axis labels for labelAngle and orient signals', done => {
+      const ast = parse(defaultLabelBaseline({signal: 'a'}, {signal: 'o'}, 'y')['signal']);
+      let a: number, o: AxisOrient;
+      // test all angles
+      for (a of range(-360, 375, 15)) {
+        for (o of ['left', 'right'] as AxisOrient[]) {
+          const {code} = codegen({
+            globalvar: ((v: string) => (v === 'a' ? a : v === 'o' ? stringValue(o) : undefined)) as any
+          })(ast);
+
+          const result = eval(code);
+          const expected = defaultLabelBaseline(normalizeAngle(a), o, 'y');
+          expect(result).toEqual(expected);
+        }
+      }
+      done();
+    });
+
+    it('correctly align x-axis labels for labelAngle and orient signals', done => {
+      const ast = parse(defaultLabelBaseline({signal: 'a'}, {signal: 'o'}, 'x')['signal']);
+      let a: number, o: AxisOrient;
+      // test all angles
+      for (a of range(-360, 375, 15)) {
+        for (o of ['top', 'bottom'] as AxisOrient[]) {
+          const {code} = codegen({
+            globalvar: ((v: string) => (v === 'a' ? a : v === 'o' ? stringValue(o) : undefined)) as any
+          })(ast);
+
+          const result = eval(code);
+          const expected = defaultLabelBaseline(normalizeAngle(a), o, 'x');
+          expect(result).toEqual(expected);
+        }
+      }
+      done();
+    });
+
+    it('correctly align y-axis labels for orient signal', done => {
+      let a: number, o: AxisOrient;
+      // test all angles
+      for (a of range(-360, 375, 15)) {
+        a = normalizeAngle(a);
+        const baseline = defaultLabelBaseline(a, {signal: 'o'}, 'y');
+
+        for (o of ['left', 'right'] as AxisOrient[]) {
+          const result = evalValueOrSignal(baseline, o);
+
+          const expected = defaultLabelBaseline(a, o, 'y');
+          expect(result).toEqual(expected);
+        }
+      }
+      done();
+    });
+
+    it('correctly align x-axis labels for orient signal', done => {
+      let a: number, o: AxisOrient;
+      // test all angles
+      for (a of range(-360, 375, 15)) {
+        a = normalizeAngle(a);
+        const baseline = defaultLabelBaseline(a, {signal: 'o'}, 'x');
+        for (o of ['top', 'bottom'] as AxisOrient[]) {
+          const result = evalValueOrSignal(baseline, o);
+
+          const expected = defaultLabelBaseline(a, o, 'x');
+          expect(result).toEqual(expected);
+        }
+      }
+      done();
     });
   });
 

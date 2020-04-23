@@ -7,7 +7,9 @@ import {
   COLOR,
   FILL,
   FILLOPACITY,
+  isXorY,
   OPACITY,
+  RADIUS,
   ScaleChannel,
   SCALE_CHANNELS,
   SHAPE,
@@ -16,6 +18,7 @@ import {
   STROKEDASH,
   STROKEOPACITY,
   STROKEWIDTH,
+  THETA,
   X,
   Y
 } from '../../channel';
@@ -45,7 +48,7 @@ import {ScaleComponentIndex} from './component';
 
 export const RANGE_PROPERTIES: (keyof Scale)[] = ['range', 'scheme'];
 
-function getSizeType(channel: ScaleChannel) {
+function getSizeChannel(channel: ScaleChannel) {
   return channel === 'x' ? 'width' : channel === 'y' ? 'height' : undefined;
 }
 
@@ -53,16 +56,16 @@ export function parseUnitScaleRange(model: UnitModel) {
   const localScaleComponents: ScaleComponentIndex = model.component.scales;
 
   // use SCALE_CHANNELS instead of scales[channel] to ensure that x, y come first!
-  SCALE_CHANNELS.forEach((channel: ScaleChannel) => {
+  for (const channel of SCALE_CHANNELS) {
     const localScaleCmpt = localScaleComponents[channel];
     if (!localScaleCmpt) {
-      return;
+      continue;
     }
 
     const rangeWithExplicit = parseRangeForChannel(channel, model);
 
     localScaleCmpt.setWithExplicit('range', rangeWithExplicit);
-  });
+  }
 }
 
 function getBinStepSignal(model: UnitModel, channel: 'x' | 'y'): SignalRefWrapper {
@@ -72,7 +75,7 @@ function getBinStepSignal(model: UnitModel, channel: 'x' | 'y'): SignalRefWrappe
     const binSignal = getBinSignalName(model, fieldDef.field, fieldDef.bin);
 
     // TODO: extract this to be range step signal
-    const sizeType = getSizeType(channel);
+    const sizeType = getSizeChannel(channel);
     const sizeSignal = model.getName(sizeType);
     return new SignalRefWrapper(() => {
       const updatedName = model.getSignalName(binSignal);
@@ -107,7 +110,7 @@ export function parseRangeForChannel(channel: ScaleChannel, model: UnitModel): E
       } else {
         switch (property) {
           case 'range':
-            if (isArray(specifiedScale.range) && (channel === 'x' || channel === 'y')) {
+            if (isArray(specifiedScale.range) && isXorY(channel)) {
               return makeExplicit(
                 specifiedScale.range.map(v => {
                   if (v === 'width' || v === 'height') {
@@ -189,7 +192,7 @@ function defaultRange(channel: ScaleChannel, model: UnitModel): VgRange {
       // If step is null, use zero to width or height.
       // Note that we use SignalRefWrapper to account for potential merges and renames.
 
-      const sizeType = getSizeType(channel);
+      const sizeType = getSizeChannel(channel);
       const sizeSignal = model.getName(sizeType);
 
       if (channel === Y && hasContinuousDomain(scaleType)) {
@@ -199,6 +202,7 @@ function defaultRange(channel: ScaleChannel, model: UnitModel): VgRange {
         return [0, SignalRefWrapper.fromName(getSignalName, sizeSignal)];
       }
     }
+
     case SIZE: {
       // TODO: support custom rangeMin, rangeMax
       const zero = model.component.scales[channel].get('zero');
@@ -214,10 +218,27 @@ function defaultRange(channel: ScaleChannel, model: UnitModel): VgRange {
         return [rangeMin, rangeMax];
       }
     }
+
+    case THETA:
+      return [0, Math.PI * 2];
+
     case ANGLE:
       // TODO: add config.scale.min/maxAngleDegree (for point and text) and config.scale.min/maxAngleRadian (for arc) once we add arc marks.
       // (It's weird to add just config.scale.min/maxAngleDegree for now)
       return [0, 360];
+
+    case RADIUS: {
+      // max radius = half od min(width,height)
+      return [
+        0,
+        new SignalRefWrapper(() => {
+          const w = model.getSignalName('width');
+          const h = model.getSignalName('height');
+          return `min(${w},${h})/2`;
+        })
+      ];
+    }
+
     case STROKEWIDTH:
       // TODO: support custom rangeMin, rangeMax
       return [config.scale.minStrokeWidth, config.scale.maxStrokeWidth];

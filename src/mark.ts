@@ -4,68 +4,56 @@ import {Gradient} from './channeldef';
 import {CompositeMark, CompositeMarkDef} from './compositemark';
 import {contains, Flag, keys} from './util';
 
-export const AREA: 'area' = 'area';
-export const BAR: 'bar' = 'bar';
-export const IMAGE: 'image' = 'image';
-export const LINE: 'line' = 'line';
-export const POINT: 'point' = 'point';
-export const RECT: 'rect' = 'rect';
-export const RULE: 'rule' = 'rule';
-export const TEXT: 'text' = 'text';
-export const TICK: 'tick' = 'tick';
-export const TRAIL: 'trail' = 'trail';
-export const CIRCLE: 'circle' = 'circle';
-export const SQUARE: 'square' = 'square';
-export const GEOSHAPE: 'geoshape' = 'geoshape';
-
 /**
  * All types of primitive marks.
  */
-export type Mark =
-  | typeof AREA
-  | typeof BAR
-  | typeof LINE
-  | typeof IMAGE
-  | typeof TRAIL
-  | typeof POINT
-  | typeof TEXT
-  | typeof TICK
-  | typeof RECT
-  | typeof RULE
-  | typeof CIRCLE
-  | typeof SQUARE
-  | typeof GEOSHAPE;
+export const Mark = {
+  arc: 'arc',
+  area: 'area',
+  bar: 'bar',
+  image: 'image',
+  line: 'line',
+  point: 'point',
+  rect: 'rect',
+  rule: 'rule',
+  text: 'text',
+  tick: 'tick',
+  trail: 'trail',
+  circle: 'circle',
+  square: 'square',
+  geoshape: 'geoshape'
+} as const;
 
-// Using mapped type to declare index, ensuring we always have all marks when we add more.
-const MARK_INDEX: Flag<Mark> = {
-  area: 1,
-  bar: 1,
-  image: 1,
-  line: 1,
-  point: 1,
-  text: 1,
-  tick: 1,
-  trail: 1,
-  rect: 1,
-  geoshape: 1,
-  rule: 1,
-  circle: 1,
-  square: 1
-};
+export const ARC = Mark.arc;
+export const AREA = Mark.area;
+export const BAR = Mark.bar;
+export const IMAGE = Mark.image;
+export const LINE = Mark.line;
+export const POINT = Mark.point;
+export const RECT = Mark.rect;
+export const RULE = Mark.rule;
+export const TEXT = Mark.text;
+export const TICK = Mark.tick;
+export const TRAIL = Mark.trail;
+export const CIRCLE = Mark.circle;
+export const SQUARE = Mark.square;
+export const GEOSHAPE = Mark.geoshape;
+
+export type Mark = keyof typeof Mark;
 
 export function isMark(m: string): m is Mark {
-  return !!MARK_INDEX[m];
+  return m in Mark;
 }
 
 export function isPathMark(m: Mark | CompositeMark): m is 'line' | 'area' | 'trail' {
   return contains(['line', 'area', 'trail'], m);
 }
 
-export function isRectBasedMark(m: Mark | CompositeMark): m is 'rect' | 'bar' | 'image' {
-  return contains(['rect', 'bar', 'image'], m);
+export function isRectBasedMark(m: Mark | CompositeMark): m is 'rect' | 'bar' | 'image' | 'arc' {
+  return contains(['rect', 'bar', 'image', 'arc' /* arc is rect/interval in polar coordinate */], m);
 }
 
-export const PRIMITIVE_MARKS = keys(MARK_INDEX);
+export const PRIMITIVE_MARKS = keys(Mark);
 
 export interface ColorMixins {
   /**
@@ -121,6 +109,19 @@ export interface VLOnlyMarkConfig extends ColorMixins {
    * If set to `0.5`, bandwidth of the marks will be half of the time unit band step.
    */
   timeUnitBand?: number;
+
+  /**
+   * The end angle of arc marks in radians. A value of 0 indicates up or “north”, increasing values proceed clockwise.
+   */
+  theta2?: number | SignalRef; // In Vega, this is called endAngle
+
+  /**
+   * The secondary (inner) radius in pixels of arc marks.
+   *
+   * @minimum 0
+   * __Default value:__ `0`
+   */
+  radius2?: number | SignalRef; // In Vega, this is called innerRadius
 }
 
 export interface MarkConfig extends VLOnlyMarkConfig, Omit<VgMarkConfig, 'tooltip'> {
@@ -184,7 +185,7 @@ export interface MarkConfig extends VLOnlyMarkConfig, Omit<VgMarkConfig, 'toolti
   y2?: number | 'height' | SignalRef; // Vega doesn't have 'height'
 
   /**
-   * Default Fill Color. This property has higher precedence than `config.color`.
+   * Default fill color. This property has higher precedence than `config.color`. Set to `null` to remove fill.
    *
    * __Default value:__ (None)
    *
@@ -192,7 +193,7 @@ export interface MarkConfig extends VLOnlyMarkConfig, Omit<VgMarkConfig, 'toolti
   fill?: Color | Gradient | null | SignalRef; // docs: Vega doesn't have config.color
 
   /**
-   * Default Stroke Color. This property has higher precedence than `config.color`.
+   * Default stroke color. This property has higher precedence than `config.color`. Set to `null` to remove stroke.
    *
    * __Default value:__ (None)
    *
@@ -231,6 +232,44 @@ export interface MarkConfig extends VLOnlyMarkConfig, Omit<VgMarkConfig, 'toolti
    * The vertical text baseline. One of `"alphabetic"` (default), `"top"`, `"middle"`, `"bottom"`, `"line-top"`, or `"line-bottom"`. The `"line-top"` and `"line-bottom"` values operate similarly to `"top"` and `"bottom"`, but are calculated relative to the `lineHeight` rather than `fontSize` alone.
    */
   baseline?: TextBaseline; // Vega doesn't apply align to ranged marks. Since some logic depends on this property, Vega-Lite does NOT allow signal for baseline.
+
+  /**
+   * - For arc marks, the arc length in radians if theta2 is not specified, otherwise the start arc angle. (A value of 0 indicates up or “north”, increasing values proceed clockwise.)
+   *
+   * - For text marks, polar coordinate angle in radians.
+   *
+   * @minimum 0
+   * @maximum 360
+   */
+  theta?: number | SignalRef; // overriding VG
+
+  /**
+   *
+   * For arc mark, the primary (outer) radius in pixels.
+   *
+   * For text marks, polar coordinate radial offset, in pixels, of the text from the origin determined by the `x` and `y` properties.
+   *
+   * @minimum 0
+   *
+   * __Default value:__ `min(plot_width, plot_height)/2`
+   */
+  radius?: number | SignalRef; // overriding VG
+
+  /**
+   * The inner radius in pixels of arc marks. `innerRadius` is an alias for `radius2`.
+   *
+   * @minimum 0
+   * __Default value:__ `0`
+   */
+  innerRadius?: number | SignalRef;
+
+  /**
+   * The outer radius in pixels of arc marks. `outerRadius` is an alias for `radius`.
+   *
+   * @minimum 0
+   * __Default value:__ `0`
+   */
+  outerRadius?: number | SignalRef;
 }
 
 export interface RectBinSpacingMixins {
@@ -276,11 +315,13 @@ const VL_ONLY_MARK_CONFIG_INDEX: Flag<keyof VLOnlyMarkConfig> = {
   filled: 1,
   invalid: 1,
   order: 1,
+  radius2: 1,
+  theta2: 1,
   timeUnitBand: 1,
   timeUnitBandPosition: 1
 };
 
-export const VL_ONLY_MARK_CONFIG_PROPERTIES: (keyof VLOnlyMarkConfig)[] = keys(VL_ONLY_MARK_CONFIG_INDEX);
+export const VL_ONLY_MARK_CONFIG_PROPERTIES = keys(VL_ONLY_MARK_CONFIG_INDEX);
 
 export const VL_ONLY_MARK_SPECIFIC_CONFIG_PROPERTY_INDEX: {
   [k in Mark]?: (keyof Required<MarkConfigMixins>[k])[];
@@ -306,6 +347,10 @@ export interface MarkConfigMixins {
   mark?: MarkConfig;
 
   // MARK-SPECIFIC CONFIGS
+
+  /** Arc-specific Config */
+  arc?: RectConfig;
+
   /** Area-Specific Config */
   area?: AreaConfig;
 
@@ -376,7 +421,7 @@ export interface BarCornerRadiusMixins {
    * - For vertical bars, top-left and top-right corner radius.
    * - For horizontal bars, top-right and bottom-right corner radius.
    */
-  cornerRadiusEnd?: number;
+  cornerRadiusEnd?: number | SignalRef;
 }
 
 export type BarConfig = RectConfig & BarCornerRadiusMixins;
@@ -423,7 +468,7 @@ export interface TickThicknessMixins {
    *
    * @minimum 0
    */
-  thickness?: number;
+  thickness?: number | SignalRef;
 }
 
 export interface GenericMarkDef<M> {
@@ -455,22 +500,42 @@ export interface MarkDefMixins {
   /**
    * Offset for x-position.
    */
-  xOffset?: number;
+  xOffset?: number | SignalRef;
 
   /**
    * Offset for y-position.
    */
-  yOffset?: number;
+  yOffset?: number | SignalRef;
 
   /**
    * Offset for x2-position.
    */
-  x2Offset?: number;
+  x2Offset?: number | SignalRef;
 
   /**
    * Offset for y2-position.
    */
-  y2Offset?: number;
+  y2Offset?: number | SignalRef;
+
+  /**
+   * Offset for theta.
+   */
+  thetaOffset?: number | SignalRef;
+
+  /**
+   * Offset for theta2.
+   */
+  theta2Offset?: number | SignalRef;
+
+  /**
+   * Offset for radius.
+   */
+  radiusOffset?: number | SignalRef;
+
+  /**
+   * Offset for radius2.
+   */
+  radius2Offset?: number | SignalRef;
 }
 
 // Point/Line OverlayMixins are only for area, line, and trail but we don't want to declare multiple types of MarkDef
@@ -478,13 +543,27 @@ export interface MarkDefMixins {
 // Point/Line OverlayMixins are only for area, line, and trail but we don't want to declare multiple types of MarkDef
 export interface MarkDef<M extends string | Mark = Mark>
   extends GenericMarkDef<M>,
-    BarCornerRadiusMixins,
-    RectBinSpacingMixins,
-    MarkConfig,
-    PointOverlayMixins,
-    LineOverlayMixins,
-    TickThicknessMixins,
-    MarkDefMixins {}
+    Omit<
+      MarkConfig &
+        AreaConfig &
+        BarConfig & // always extends RectConfig
+        LineConfig &
+        TickConfig,
+      'startAngle' | 'endAngle'
+    >,
+    MarkDefMixins {
+  // Omit startAngle/endAngle since we use theta/theta2 from Vega-Lite schema to avoid confusion
+  // We still support start/endAngle  only in config, just in case people use Vega config with Vega-Lite.
+
+  /**
+   * @hidden
+   */
+  startAngle?: number | SignalRef;
+  /**
+   * @hidden
+   */
+  endAngle?: number | SignalRef;
+}
 
 const DEFAULT_RECT_BAND_SIZE = 5;
 
